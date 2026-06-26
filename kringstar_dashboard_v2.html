@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kringstar AI — Agent Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#B8860B;--gold-lt:#D4A017;--gold-dim:rgba(184,134,11,0.12);
+    --navy:#1A1A2E;--ink:#2C2C54;--smoke:#F5F4F0;--mist:#ECEAE4;
+    --white:#FFFFFF;--text:#1A1A1A;--sub:#666666;
+    --err:#C0392B;--err-dim:rgba(192,57,43,0.08);
+    --ok:#1A7A4A;--ok-dim:rgba(26,122,74,0.08);
+    --warn:#D68910;--warn-dim:rgba(214,137,16,0.08);
+    --radius:4px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;padding-bottom:80px;}
+
+  /* HEADER */
+  .header{background:var(--navy);padding:20px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(184,134,11,0.2);}
+  .wordmark{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;}
+  .header-right{font-size:12px;color:rgba(255,255,255,0.4);text-align:right;line-height:1.6;}
+  .header-right strong{display:block;color:rgba(255,255,255,0.75);font-size:13px;}
+
+  /* ALERT BANNER */
+  .alert-banner{background:#7B1F1F;border-bottom:1px solid rgba(192,57,43,0.4);padding:10px 32px;display:none;align-items:center;gap:10px;}
+  .alert-banner.show{display:flex;}
+  .alert-banner span{font-size:12px;color:#FFD0CC;flex:1;}
+  .alert-banner strong{color:#fff;}
+
+  /* STATS ROW */
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-bottom:2px;}
+  .stat-card{background:var(--white);padding:18px 22px;}
+  .stat-label{font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--sub);margin-bottom:6px;}
+  .stat-value{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:var(--navy);line-height:1;}
+  .stat-value.gold{color:var(--gold);}
+  .stat-value.ok{color:var(--ok);}
+  .stat-value.err{color:var(--err);}
+  .stat-value.warn{color:var(--warn);}
+  .stat-sub{font-size:11px;color:var(--sub);margin-top:4px;}
+
+  /* TOOLBAR */
+  .toolbar{background:var(--white);padding:12px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-wrap:wrap;gap:10px;}
+  .toolbar-title{font-size:13px;font-weight:600;color:var(--navy);letter-spacing:0.04em;}
+  .toolbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .filter-btn{padding:5px 13px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;border:1.5px solid var(--mist);border-radius:var(--radius);background:var(--smoke);color:var(--sub);cursor:pointer;transition:all .15s;}
+  .filter-btn.active,.filter-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim);}
+  .search-input{padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:12px;border:1.5px solid var(--mist);border-radius:var(--radius);background:var(--smoke);color:var(--text);outline:none;width:170px;}
+  .search-input:focus{border-color:var(--gold);}
+  .add-btn{padding:7px 16px;background:var(--gold);color:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;border:none;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+  .add-btn:hover{background:var(--gold-lt);}
+
+  /* TABLE */
+  .table-wrap{background:var(--white);overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:1020px;}
+  thead tr{background:var(--navy);}
+  thead th{padding:11px 14px;font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.55);text-align:left;white-space:nowrap;}
+  tbody tr{border-bottom:1px solid var(--mist);transition:background .12s;}
+  tbody tr:hover{background:var(--smoke);}
+  tbody tr.row-overdue{background:var(--err-dim);}
+  tbody tr.row-renew-soon{background:#FFFBF0;}
+  tbody td{padding:13px 14px;font-size:13px;color:var(--text);vertical-align:middle;}
+  .agent-name{font-weight:600;color:var(--navy);}
+  .agency-sub{font-size:11px;color:var(--sub);margin-top:2px;}
+
+  /* BADGES */
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.03em;}
+  .badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+  .badge-active{background:var(--ok-dim);color:var(--ok);}
+  .badge-active::before{background:var(--ok);}
+  .badge-pending{background:var(--warn-dim);color:var(--warn);}
+  .badge-pending::before{background:var(--warn);}
+  .badge-overdue{background:var(--err-dim);color:var(--err);}
+  .badge-overdue::before{background:var(--err);}
+  .plan-tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:2px;background:var(--smoke);color:var(--ink);border:1px solid var(--mist);}
+  .form-link{font-size:11px;color:var(--gold);text-decoration:none;font-weight:500;}
+  .form-link:hover{text-decoration:underline;}
+  .leads-num{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--navy);}
+  .leads-sub{font-size:10px;color:var(--sub);}
+  .renew-chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:2px;}
+  .renew-chip.ok{background:var(--ok-dim);color:var(--ok);}
+  .renew-chip.warn{background:var(--warn-dim);color:var(--warn);}
+  .renew-chip.err{background:var(--err-dim);color:var(--err);}
+  .action-btn{padding:4px 11px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;border:1.5px solid var(--mist);border-radius:var(--radius);background:transparent;color:var(--sub);cursor:pointer;transition:all .15s;margin-right:4px;}
+  .action-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .action-btn.danger:hover{border-color:var(--err);color:var(--err);}
+
+  /* HISTORY TOOLTIP */
+  .hist-wrap{position:relative;display:inline-block;}
+  .hist-btn{background:none;border:none;font-size:11px;color:var(--gold);cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;font-weight:500;}
+  .hist-btn:hover{text-decoration:underline;}
+  .hist-popup{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--navy);color:#fff;border-radius:var(--radius);padding:12px 16px;min-width:200px;z-index:50;border:1px solid rgba(184,134,11,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+  .hist-popup.show{display:block;}
+  .hist-popup h4{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+  .hist-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+  .hist-row:last-child{border-bottom:none;}
+  .hist-row span:last-child{font-weight:600;color:#fff;}
+
+  /* EMPTY STATE */
+  .empty-state{text-align:center;padding:60px 24px;color:var(--sub);}
+  .empty-state h3{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--navy);margin-bottom:8px;}
+  .empty-state p{font-size:13px;line-height:1.6;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:var(--white);border-radius:var(--radius);padding:28px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;border-top:3px solid var(--gold);}
+  .modal h2{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+  .modal-sub{font-size:13px;color:var(--sub);margin-bottom:20px;}
+  .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .modal-field{margin-bottom:0;}
+  .modal-field.full{grid-column:1/-1;}
+  .modal-field label{display:block;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--navy);margin-bottom:5px;}
+  .modal-field input,.modal-field select{width:100%;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--smoke);border:1.5px solid var(--mist);border-radius:var(--radius);outline:none;-webkit-appearance:none;appearance:none;color:var(--text);}
+  .modal-field input:focus,.modal-field select:focus{border-color:var(--gold);}
+  .modal-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B8860B' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;}
+  .modal-divider{grid-column:1/-1;border:none;border-top:1px solid var(--mist);margin:4px 0;}
+  .modal-section-label{grid-column:1/-1;font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--sub);padding-top:4px;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .btn-primary{flex:1;padding:11px;background:var(--gold);color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;border:none;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+  .btn-primary:hover{background:var(--gold-lt);}
+  .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
+  .btn-cancel{padding:11px 18px;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:13px;border:1.5px solid var(--mist);border-radius:var(--radius);cursor:pointer;}
+  .modal-status{font-size:12px;margin-top:10px;text-align:center;min-height:16px;}
+  .modal-status.ok{color:var(--ok);}
+  .modal-status.err{color:var(--err);}
+
+  /* RENEW MODAL */
+  .renew-modal{max-width:400px;}
+  .renew-modal p{font-size:13px;color:var(--sub);margin-bottom:16px;line-height:1.6;}
+  .renew-detail{background:var(--smoke);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;}
+  .renew-detail-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;}
+  .renew-detail-row span:last-child{font-weight:600;color:var(--navy);}
+
+  .footer-note{text-align:center;font-size:11px;color:rgba(255,255,255,0.2);margin-top:28px;padding:0 32px;}
+
+  @media(max-width:700px){
+    .stats-row{grid-template-columns:1fr 1fr;}
+    .header{padding:14px 16px;}
+    .toolbar{padding:10px 14px;}
+    .alert-banner{padding:10px 16px;}
+    .modal-grid{grid-template-columns:1fr;}
+    .modal-field.full{grid-column:1;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="wordmark">Kringstar AI</div>
+  <div class="header-right">
+    <strong id="today-date"></strong>
+    Agent Operations Dashboard
+  </div>
+</div>
+
+<!-- ALERT BANNER -->
+<div class="alert-banner" id="alert-banner">
+  <span id="alert-text"></span>
+</div>
+
+<!-- STATS ROW -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">Total Clients</div>
+    <div class="stat-value gold" id="stat-total">0</div>
+    <div class="stat-sub">All time</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Active</div>
+    <div class="stat-value ok" id="stat-active">0</div>
+    <div class="stat-sub">Paid & running</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pending</div>
+    <div class="stat-value warn" id="stat-pending">0</div>
+    <div class="stat-sub">Awaiting payment</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Renewals Due</div>
+    <div class="stat-value err" id="stat-renewals">0</div>
+    <div class="stat-sub">Within 7 days</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">MRR</div>
+    <div class="stat-value gold" id="stat-mrr">₦0</div>
+    <div class="stat-sub">Monthly retainer</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-title">Agent Clients</div>
+  <div class="toolbar-actions">
+    <input class="search-input" type="text" id="search" placeholder="Search agents..." oninput="renderTable()">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('Active',this)">Active</button>
+    <button class="filter-btn" onclick="setFilter('Pending Payment',this)">Pending</button>
+    <button class="filter-btn" onclick="setFilter('Overdue',this)">Overdue</button>
+    <button class="add-btn" onclick="openModal()">+ Add Client</button>
+  </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Agent</th>
+        <th>Plan</th>
+        <th>Status</th>
+        <th>Form URL</th>
+        <th>Leads This Month</th>
+        <th>History</th>
+        <th>Next Renewal</th>
+        <th>Payment</th>
+        <th>Joined</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div class="empty-state" id="empty-state" style="display:none">
+    <h3>No clients yet</h3>
+    <p>Click "+ Add Client" to onboard your first agent.</p>
+  </div>
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h2 id="modal-title">Add Client</h2>
+    <div class="modal-sub" id="modal-desc">Fill in the agent's details. Form URL is auto-generated from their name.</div>
+    <div class="modal-grid">
+
+      <div class="modal-section-label">Agent Details</div>
+
+      <div class="modal-field">
+        <label>Full Name *</label>
+        <input type="text" id="m-name" placeholder="e.g. Bamidele Adewale">
+      </div>
+      <div class="modal-field">
+        <label>Agency Name</label>
+        <input type="text" id="m-agency" placeholder="e.g. Adewale Properties">
+      </div>
+      <div class="modal-field">
+        <label>WhatsApp Number</label>
+        <input type="tel" id="m-phone" placeholder="08012345678">
+      </div>
+      <div class="modal-field">
+        <label>Email</label>
+        <input type="email" id="m-email" placeholder="agent@email.com">
+      </div>
+      <div class="modal-field full">
+        <label>Corridors</label>
+        <input type="text" id="m-corridors" placeholder="e.g. Ajah, Lekki, Sangotedo">
+      </div>
+
+      <hr class="modal-divider">
+      <div class="modal-section-label">Plan & Billing</div>
+
+      <div class="modal-field">
+        <label>Plan *</label>
+        <select id="m-plan" class="modal-select">
+          <option value="">— Select plan —</option>
+          <option value="Starter">Starter — ₦250k/mo</option>
+          <option value="Growth">Growth — ₦500k/mo</option>
+          <option value="Premium">Premium — ₦900k/mo</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>Status</label>
+        <select id="m-status" class="modal-select">
+          <option value="Pending Payment">Pending Payment</option>
+          <option value="Active">Active</option>
+          <option value="Overdue">Overdue</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>Date Joined</label>
+        <input type="date" id="m-date-joined">
+      </div>
+      <div class="modal-field">
+        <label>Next Renewal Date</label>
+        <input type="date" id="m-renewal-date">
+      </div>
+
+      <hr class="modal-divider">
+      <div class="modal-section-label">Performance</div>
+
+      <div class="modal-field">
+        <label>Leads This Month</label>
+        <input type="number" id="m-leads" placeholder="0" value="0" min="0">
+      </div>
+      <div class="modal-field full">
+        <label>Notes</label>
+        <input type="text" id="m-notes" placeholder="e.g. Pausing in July, follow up Aug 1">
+      </div>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="modal-save-btn" onclick="saveAgent()">Save Client</button>
+    </div>
+    <div class="modal-status" id="modal-status"></div>
+  </div>
+</div>
+
+<!-- RENEW MODAL -->
+<div class="modal-overlay" id="renew-overlay" onclick="closeRenewOutside(event)">
+  <div class="modal renew-modal">
+    <h2>Record Renewal</h2>
+    <p>This will mark the next billing cycle as paid and extend the renewal date by one month.</p>
+    <div class="renew-detail" id="renew-detail"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRenewModal()">Cancel</button>
+      <button class="btn-primary" id="renew-confirm-btn" onclick="confirmRenew()">Confirm Renewal</button>
+    </div>
+    <div class="modal-status" id="renew-status"></div>
+  </div>
+</div>
+
+<div class="footer-note">Kringstar AI &nbsp;·&nbsp; Internal Operations Dashboard &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; Data stored locally in this browser</div>
+
+<script>
+// ── CONSTANTS ──
+var STORE_KEY = 'kringstar_agents_v2';
+var PLAN_MRR  = { Starter:250000, Growth:500000, Premium:900000 };
+var MONTHS    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── STATE ──
+var agents = [];
+var currentFilter = 'all';
+var editingId = null;
+var renewingId = null;
+
+// ── STORAGE ──
+function loadAgents() {
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    agents = raw ? JSON.parse(raw) : [];
+  } catch(e) { agents = []; }
+  if (agents.length === 0) {
+    var today = todayISO();
+    var renewal = addMonths(today, 1);
+    agents = [{
+      id: 'agent_bamidele',
+      name: 'Bamidele Adewale',
+      agency: 'Bamidele Properties',
+      phone: '08012345678',
+      email: 'bamidele@properties.com',
+      plan: 'Starter',
+      corridors: 'Ajah / Sangotedo',
+      status: 'Active',
+      leads: 0,
+      leadHistory: {},
+      date_joined: '2026-06-13',
+      renewal_date: '2026-07-13',
+      payment: 'Paid',
+      notes: ''
+    }];
+    saveAgents();
+  }
+  // migrate old records that lack new fields
+  agents.forEach(function(a) {
+    if (!a.leadHistory) a.leadHistory = {};
+    if (!a.renewal_date) a.renewal_date = addMonths(a.date_joined || todayISO(), 1);
+    if (!a.notes) a.notes = '';
+  });
+}
+
+function saveAgents() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(agents));
+}
+
+// ── DATE HELPERS ──
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function addMonths(isoDate, n) {
+  var d = new Date(isoDate);
+  d.setMonth(d.getMonth() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function daysUntil(isoDate) {
+  var now  = new Date(); now.setHours(0,0,0,0);
+  var then = new Date(isoDate); then.setHours(0,0,0,0);
+  return Math.round((then - now) / 86400000);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  var p = d.split('-');
+  return p[2] + ' ' + MONTHS[parseInt(p[1])-1] + ' ' + p[0];
+}
+
+function currentMonthKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+// ── AUTO RESET LEADS MONTHLY ──
+function checkMonthlyReset() {
+  var key = currentMonthKey();
+  var lastReset = localStorage.getItem('kringstar_last_reset');
+  if (lastReset === key) return;
+  agents.forEach(function(a) {
+    var prev = currentMonthKey();
+    // archive current leads into history before reset
+    if (a.leads > 0) {
+      var d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      var prevKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      if (!a.leadHistory[prevKey]) a.leadHistory[prevKey] = a.leads;
+    }
+    a.leads = 0;
+    // flip active clients to pending for new month
+    if (a.status === 'Active') {
+      a.status = 'Pending Payment';
+      a.payment = 'Pending';
+    }
+  });
+  saveAgents();
+  localStorage.setItem('kringstar_last_reset', key);
+}
+
+// ── ALERT BANNER ──
+function buildAlerts() {
+  var items = [];
+  var today = todayISO();
+  agents.forEach(function(a) {
+    if (!a.renewal_date) return;
+    var days = daysUntil(a.renewal_date);
+    if (days < 0) {
+      items.push('<strong>' + a.name + '</strong> renewal is overdue by ' + Math.abs(days) + ' day(s).');
+    } else if (days <= 5) {
+      items.push('<strong>' + a.name + '</strong> renews in ' + days + ' day(s) — ' + fmtDate(a.renewal_date) + '.');
+    }
+  });
+  var banner = document.getElementById('alert-banner');
+  var text   = document.getElementById('alert-text');
+  if (items.length) {
+    text.innerHTML = '⚠️ &nbsp;' + items.join(' &nbsp;|&nbsp; ');
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+// ── STATS ──
+function updateStats() {
+  var total    = agents.length;
+  var active   = agents.filter(function(a){ return a.status==='Active'; }).length;
+  var pending  = agents.filter(function(a){ return a.status==='Pending Payment'; }).length;
+  var mrr      = agents.filter(function(a){ return a.status==='Active'; })
+                       .reduce(function(s,a){ return s+(PLAN_MRR[a.plan]||0); },0);
+  var renewals = agents.filter(function(a){
+    if (!a.renewal_date) return false;
+    var d = daysUntil(a.renewal_date);
+    return d >= 0 && d <= 7;
+  }).length;
+
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-active').textContent   = active;
+  document.getElementById('stat-pending').textContent  = pending;
+  document.getElementById('stat-renewals').textContent = renewals;
+  document.getElementById('stat-mrr').textContent      = fmtMRR(mrr);
+}
+
+function fmtMRR(n) {
+  if (n >= 1000000) return '₦' + (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return '₦' + (n/1000).toFixed(0) + 'k';
+  return '₦' + n;
+}
+
+// ── BADGES ──
+function statusBadge(s) {
+  var cls = s==='Active'?'badge-active':s==='Overdue'?'badge-overdue':'badge-pending';
+  return '<span class="badge '+cls+'">'+s+'</span>';
+}
+
+function paymentBadge(p) {
+  if (!p || p==='Paid')    return '<span style="font-size:12px;color:var(--ok);font-weight:600;">✓ Paid</span>';
+  if (p==='Overdue')       return '<span style="font-size:12px;color:var(--err);font-weight:600;">Overdue</span>';
+  return '<span style="font-size:12px;color:var(--warn);font-weight:500;">Pending</span>';
+}
+
+function renewalChip(isoDate) {
+  if (!isoDate) return '—';
+  var days = daysUntil(isoDate);
+  var label = fmtDate(isoDate);
+  if (days < 0)       return '<span class="renew-chip err">'+label+' ('+Math.abs(days)+'d overdue)</span>';
+  if (days <= 5)      return '<span class="renew-chip warn">'+label+' ('+days+'d)</span>';
+  return '<span class="renew-chip ok">'+label+'</span>';
+}
+
+// ── SLUGIFY / FORM URL ──
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+function formUrl(name) {
+  return 'kristoferkings6-dot.github.io/' + slugify(name);
+}
+
+// ── HISTORY POPUP ──
+function buildHistory(a) {
+  var hist = a.leadHistory || {};
+  var keys = Object.keys(hist).sort().reverse().slice(0, 6);
+  if (keys.length === 0) return '<span style="font-size:12px;color:var(--sub)">No history yet</span>';
+  var html = '<div class="hist-wrap" id="hw_'+a.id+'">'
+    + '<button class="hist-btn" onclick="toggleHist(\''+a.id+'\')">View history ▾</button>'
+    + '<div class="hist-popup" id="hp_'+a.id+'">'
+    + '<h4>Monthly Leads</h4>';
+  keys.forEach(function(k) {
+    var parts = k.split('-');
+    var label = MONTHS_FULL[parseInt(parts[1])-1] + ' ' + parts[0];
+    html += '<div class="hist-row"><span>'+label+'</span><span>'+hist[k]+'</span></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function toggleHist(id) {
+  var popup = document.getElementById('hp_'+id);
+  if (!popup) return;
+  popup.classList.toggle('show');
+}
+
+// close history popups when clicking elsewhere
+document.addEventListener('click', function(e) {
+  if (!e.target.classList.contains('hist-btn')) {
+    document.querySelectorAll('.hist-popup.show').forEach(function(p){ p.classList.remove('show'); });
+  }
+});
+
+// ── RENDER TABLE ──
+function renderTable() {
+  var q = (document.getElementById('search').value||'').toLowerCase();
+  var filtered = agents.filter(function(a) {
+    var mf = currentFilter==='all' || a.status===currentFilter;
+    var ms = !q || a.name.toLowerCase().includes(q) || (a.agency||'').toLowerCase().includes(q);
+    return mf && ms;
+  });
+
+  var tbody = document.getElementById('table-body');
+  var empty = document.getElementById('empty-state');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(function(a) {
+    var days = a.renewal_date ? daysUntil(a.renewal_date) : 999;
+    var rowCls = a.status==='Overdue' ? 'row-overdue' : (days>=0&&days<=5 ? 'row-renew-soon' : '');
+    var url = formUrl(a.name);
+    return '<tr class="'+rowCls+'">'
+      + '<td><div class="agent-name">'+a.name+'</div><div class="agency-sub">'+(a.agency||'')+'</div></td>'
+      + '<td><span class="plan-tag">'+(a.plan||'—')+'</span></td>'
+      + '<td>'+statusBadge(a.status)+'</td>'
+      + '<td><a class="form-link" href="https://'+url+'" target="_blank">'+url+'</a></td>'
+      + '<td><div class="leads-num">'+(a.leads||0)+'</div><div class="leads-sub">this month</div></td>'
+      + '<td>'+buildHistory(a)+'</td>'
+      + '<td>'+renewalChip(a.renewal_date)+'</td>'
+      + '<td>'+paymentBadge(a.payment)+'</td>'
+      + '<td style="font-size:12px;color:var(--sub)">'+fmtDate(a.date_joined)+'</td>'
+      + '<td style="font-size:12px;color:var(--sub);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+(a.notes||'')+'">'+(a.notes||'—')+'</td>'
+      + '<td style="white-space:nowrap">'
+        + '<button class="action-btn" onclick="openRenewModal(\''+a.id+'\')">Renew</button>'
+        + '<button class="action-btn" onclick="editAgent(\''+a.id+'\')">Edit</button>'
+        + '<button class="action-btn danger" onclick="deleteAgent(\''+a.id+'\')">✕</button>'
+      + '</td>'
+    + '</tr>';
+  }).join('');
+}
+
+// ── FILTER ──
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderTable();
+}
+
+// ── ADD / EDIT MODAL ──
+function openModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Client';
+  document.getElementById('modal-desc').textContent  = 'Fill in the agent details. Form URL auto-generates from their name.';
+  document.getElementById('m-name').value       = '';
+  document.getElementById('m-agency').value     = '';
+  document.getElementById('m-phone').value      = '';
+  document.getElementById('m-email').value      = '';
+  document.getElementById('m-plan').value       = '';
+  document.getElementById('m-corridors').value  = '';
+  document.getElementById('m-status').value     = 'Pending Payment';
+  document.getElementById('m-leads').value      = '0';
+  document.getElementById('m-notes').value      = '';
+  document.getElementById('m-date-joined').value = todayISO();
+  document.getElementById('m-renewal-date').value = addMonths(todayISO(), 1);
+  document.getElementById('modal-status').textContent = '';
+  document.getElementById('modal-save-btn').disabled = false;
+  document.getElementById('modal-save-btn').textContent = 'Save Client';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function editAgent(id) {
+  var a = agents.find(function(x){ return x.id===id; });
+  if (!a) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Client';
+  document.getElementById('modal-desc').textContent  = 'Update the agent's details below.';
+  document.getElementById('m-name').value       = a.name;
+  document.getElementById('m-agency').value     = a.agency||'';
+  document.getElementById('m-phone').value      = a.phone||'';
+  document.getElementById('m-email').value      = a.email||'';
+  document.getElementById('m-plan').value       = a.plan||'';
+  document.getElementById('m-corridors').value  = a.corridors||'';
+  document.getElementById('m-status').value     = a.status;
+  document.getElementById('m-leads').value      = a.leads||0;
+  document.getElementById('m-notes').value      = a.notes||'';
+  document.getElementById('m-date-joined').value = a.date_joined||'';
+  document.getElementById('m-renewal-date').value = a.renewal_date||'';
+  document.getElementById('modal-status').textContent = '';
+  document.getElementById('modal-save-btn').disabled = false;
+  document.getElementById('modal-save-btn').textContent = 'Update Client';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function saveAgent() {
+  var name    = document.getElementById('m-name').value.trim();
+  var plan    = document.getElementById('m-plan').value;
+  var status  = document.getElementById('m-status').value;
+  var leads   = parseInt(document.getElementById('m-leads').value)||0;
+  var renewal = document.getElementById('m-renewal-date').value;
+  var joined  = document.getElementById('m-date-joined').value;
+
+  if (!name || !plan) {
+    var s = document.getElementById('modal-status');
+    s.textContent = 'Name and plan are required.';
+    s.className   = 'modal-status err';
+    return;
+  }
+
+  var btn = document.getElementById('modal-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  var record = {
+    name:         name,
+    agency:       document.getElementById('m-agency').value.trim(),
+    phone:        document.getElementById('m-phone').value.trim(),
+    email:        document.getElementById('m-email').value.trim(),
+    plan:         plan,
+    corridors:    document.getElementById('m-corridors').value.trim(),
+    status:       status,
+    leads:        leads,
+    notes:        document.getElementById('m-notes').value.trim(),
+    date_joined:  joined || todayISO(),
+    renewal_date: renewal || addMonths(joined||todayISO(), 1),
+    payment:      status==='Active' ? 'Paid' : (status==='Overdue' ? 'Overdue' : 'Pending')
+  };
+
+  if (editingId) {
+    var idx = agents.findIndex(function(a){ return a.id===editingId; });
+    if (idx > -1) {
+      record.id          = editingId;
+      record.leadHistory = agents[idx].leadHistory || {};
+      agents[idx] = record;
+    }
+    editingId = null;
+  } else {
+    record.id          = 'agent_' + Date.now();
+    record.leadHistory = {};
+    agents.push(record);
+  }
+
+  saveAgents();
+  updateStats();
+  buildAlerts();
+  renderTable();
+
+  var s = document.getElementById('modal-status');
+  s.textContent = 'Saved.';
+  s.className   = 'modal-status ok';
+  setTimeout(closeModal, 700);
+}
+
+// ── DELETE ──
+function deleteAgent(id) {
+  var a = agents.find(function(x){ return x.id===id; });
+  if (!a) return;
+  if (!confirm('Remove ' + a.name + ' from the dashboard? This cannot be undone.')) return;
+  agents = agents.filter(function(x){ return x.id!==id; });
+  saveAgents();
+  updateStats();
+  buildAlerts();
+  renderTable();
+}
+
+// ── RENEW MODAL ──
+function openRenewModal(id) {
+  var a = agents.find(function(x){ return x.id===id; });
+  if (!a) return;
+  renewingId = id;
+  var newRenewal = addMonths(a.renewal_date||todayISO(), 1);
+  document.getElementById('renew-detail').innerHTML =
+    '<div class="renew-detail-row"><span>Agent</span><span>'+a.name+'</span></div>'
+    +'<div class="renew-detail-row"><span>Plan</span><span>'+a.plan+' — '+fmtMRR(PLAN_MRR[a.plan]||0)+'</span></div>'
+    +'<div class="renew-detail-row"><span>Current renewal</span><span>'+fmtDate(a.renewal_date)+'</span></div>'
+    +'<div class="renew-detail-row"><span>New renewal date</span><span>'+fmtDate(newRenewal)+'</span></div>';
+  document.getElementById('renew-status').textContent = '';
+  document.getElementById('renew-confirm-btn').disabled = false;
+  document.getElementById('renew-overlay').classList.add('show');
+}
+
+function closeRenewModal() {
+  document.getElementById('renew-overlay').classList.remove('show');
+  renewingId = null;
+}
+
+function closeRenewOutside(e) {
+  if (e.target === document.getElementById('renew-overlay')) closeRenewModal();
+}
+
+function confirmRenew() {
+  var a = agents.find(function(x){ return x.id===renewingId; });
+  if (!a) return;
+
+  // archive this month's leads into history
+  var mk = currentMonthKey();
+  if (!a.leadHistory) a.leadHistory = {};
+  a.leadHistory[mk] = a.leads || 0;
+
+  // extend renewal
+  a.renewal_date = addMonths(a.renewal_date||todayISO(), 1);
+  a.status       = 'Active';
+  a.payment      = 'Paid';
+  a.leads        = 0; // reset for new month
+
+  saveAgents();
+  updateStats();
+  buildAlerts();
+  renderTable();
+
+  var s = document.getElementById('renew-status');
+  s.textContent = 'Renewal recorded. Next due: ' + fmtDate(a.renewal_date);
+  s.className   = 'modal-status ok';
+  document.getElementById('renew-confirm-btn').disabled = true;
+  setTimeout(closeRenewModal, 1200);
+}
+
+// ── DATE HEADER ──
+function setDate() {
+  var d    = new Date();
+  var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('today-date').textContent =
+    days[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+// ── INIT ──
+setDate();
+loadAgents();
+checkMonthlyReset();
+updateStats();
+buildAlerts();
+renderTable();
+</script>
+</body>
+</html>
