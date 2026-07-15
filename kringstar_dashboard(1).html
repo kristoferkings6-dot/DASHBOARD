@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kringstar Lead Gen — Operations Dashboard</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet" />
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: { DEFAULT: '#0F172A', 950: '#0A0F1D', 900: '#0F172A', 800: '#151F35' },
+          slate: { 850: '#182235' },
+          card: '#1E293B',
+          gold: { DEFAULT: '#B8860B', light: '#D9A82B', dim: '#8A660A', pale: '#F3E3B0' },
+        },
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+          display: ['Inter Tight', 'Inter', 'ui-sans-serif'],
+        },
+        boxShadow: {
+          card: '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.6)',
+          gold: '0 0 0 1px rgba(184,134,11,0.25), 0 8px 24px -8px rgba(184,134,11,0.25)',
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(1200px 500px at 15% -10%, rgba(184,134,11,0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(184,134,11,0.06), transparent 55%),
+      #0F172A;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #0F172A; }
+  ::-webkit-scrollbar-thumb { background: #2A3548; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #B8860B; }
+
+  .corridor-line {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #B8860B 15%, #D9A82B 50%, #B8860B 85%, transparent);
+    opacity: 0.6;
+  }
+
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  .skel {
+    background: linear-gradient(90deg, #1E293B 25%, #263349 37%, #1E293B 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 0.5rem;
+  }
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+  .badge-active { background: rgba(34,197,94,0.12); color: #4ADE80; border: 1px solid rgba(34,197,94,0.3); }
+  .badge-pending { background: rgba(245,158,11,0.12); color: #FBBF24; border: 1px solid rgba(245,158,11,0.3); }
+  .badge-churned { background: rgba(239,68,68,0.12); color: #F87171; border: 1px solid rgba(239,68,68,0.3); }
+
+  input:focus, select:focus, button:focus-visible {
+    outline: 2px solid #B8860B; outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skel { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+
+  table thead th { position: sticky; top: 0; z-index: 5; }
+</style>
+</head>
+
+<body class="font-sans text-white antialiased">
+
+<!-- ============================= CONFIG BANNER (remove-me if desired) ============================= -->
+<div id="config-warning" class="hidden bg-gold/90 text-navy text-sm font-semibold text-center py-2 px-4">
+  ⚠️ Set your SHEET_ID and API_KEY in the CONFIG object near the top of the &lt;script&gt; tag before this dashboard will load live data.
+</div>
+
+<!-- ============================= HEADER ============================= -->
+<header class="sticky top-0 z-40 backdrop-blur bg-navy/85 border-b border-white/5">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="34" height="34" rx="9" stroke="#B8860B" stroke-width="1.5"/>
+        <path d="M10 25V11L18 18L26 11V25" stroke="#D9A82B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <h1 class="font-display font-800 text-lg sm:text-xl tracking-tight leading-none">KRINGSTAR <span class="text-gold-light">LEAD GEN</span></h1>
+        <p class="text-[11px] uppercase tracking-[0.18em] text-slate-400 mt-0.5">Operations Dashboard</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 sm:gap-3">
+      <select id="month-selector" class="bg-card border border-white/10 text-sm rounded-lg px-3 py-2 text-white cursor-pointer hover:border-gold/40 transition-colors">
+        <option value="all">Full year</option>
+      </select>
+      <select id="year-selector" class="bg-card border border-white/10 text-sm rounded-lg px-3 py-2 text-white cursor-pointer hover:border-gold/40 transition-colors"></select>
+      <button id="refresh-btn" class="group flex items-center gap-2 bg-card hover:bg-slate-850 border border-white/10 hover:border-gold/40 text-sm rounded-lg px-3 py-2 transition-colors">
+        <svg id="refresh-icon" class="w-4 h-4 text-gold-light transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span class="hidden sm:inline">Refresh</span>
+      </button>
+    </div>
+  </div>
+  <div class="corridor-line"></div>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-[11px] text-slate-500 py-1.5">
+    <span id="today-date" class="font-medium text-slate-400">—</span>
+    <span class="flex items-center gap-3">
+      <span id="last-updated">Last updated — never</span>
+      <span id="conn-status" class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>Connecting…</span>
+    </span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+
+  <!-- ============================= ERROR STATE ============================= -->
+  <div id="error-banner" class="hidden rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+    <p class="font-semibold mb-0.5">Couldn't reach Google Sheets.</p>
+    <p id="error-detail" class="text-red-300/80"></p>
+  </div>
+
+  <!-- ============================= RENEWAL ALERT ============================= -->
+  <div id="renewal-banner" class="hidden rounded-xl border border-red-500/30 bg-red-900/30 px-4 py-3 text-sm text-red-200 flex items-start gap-2.5">
+    <span class="mt-0.5">⚠️</span>
+    <p id="renewal-banner-text" class="leading-snug"></p>
+  </div>
+
+  <!-- ============================= SECTION 1 — TOP STATS ============================= -->
+  <section aria-label="Key stats">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Total Clients</p>
+        <p id="stat-total-clients" class="skel h-8 w-16 font-display font-800 text-2xl sm:text-3xl tabular"></p>
+        <p class="text-[11px] text-slate-500 mt-1">All time</p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Active Clients</p>
+        <p id="stat-active-clients" class="skel h-8 w-16 font-display font-800 text-2xl sm:text-3xl tabular"></p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Current MRR</p>
+        <p id="stat-mrr" class="skel h-8 w-28 font-display font-800 text-2xl sm:text-3xl text-gold-light tabular"></p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Revenue This Year</p>
+        <p id="stat-revenue-ytd" class="skel h-8 w-28 font-display font-800 text-2xl sm:text-3xl tabular"></p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Revenue Last Month</p>
+        <p id="stat-revenue-last-month" class="skel h-8 w-28 font-display font-800 text-2xl sm:text-3xl tabular"></p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-3 sm:mt-4">
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Made This Month</p>
+        <p id="stat-revenue-this-month" class="skel h-8 w-20 sm:w-28 font-display font-800 text-xl sm:text-3xl text-gold-light tabular"></p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Renewed This Month</p>
+        <p id="stat-renewed-this-month" class="skel h-8 w-16 font-display font-800 text-xl sm:text-3xl text-green-400 tabular"></p>
+        <p class="text-[11px] text-slate-500 mt-1">Active clients paid</p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Pending</p>
+        <p id="stat-pending-clients" class="skel h-8 w-10 font-display font-800 text-xl sm:text-3xl tabular"></p>
+        <p class="text-[11px] text-slate-500 mt-1">Awaiting payment</p>
+      </div>
+      <div class="stat-card bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Renewals Due</p>
+        <p id="stat-renewals-due" class="skel h-8 w-10 font-display font-800 text-xl sm:text-3xl tabular"></p>
+        <p class="text-[11px] text-slate-500 mt-1">Within 7 days</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= SECTION 2 — REVENUE CHART ============================= -->
+  <section aria-label="Revenue by month" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="font-display font-700 text-lg">Revenue by Month</h2>
+        <p class="text-xs text-slate-400" id="chart-year-label">—</p>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-slate-400">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-gold-light inline-block"></span><span id="legend-best-label">Best month</span></span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#3B4966] inline-block"></span>Revenue</span>
+        <span id="legend-prior-wrap" class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-slate-500 inline-block"></span><span id="legend-prior-label">Prior year</span></span>
+      </div>
+    </div>
+    <div class="relative h-72 sm:h-80">
+      <canvas id="revenue-chart"></canvas>
+    </div>
+  </section>
+
+  <!-- ============================= SECTION 3 — KEY METRICS ============================= -->
+  <section aria-label="Key business metrics">
+    <h2 class="font-display font-700 text-lg mb-4">Key Business Metrics</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">LTV <span class="lowercase text-slate-500">(avg per client)</span></p>
+        <p id="metric-ltv" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">CAC</p>
+        <p id="metric-cac" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Avg Revenue / Client / Mo</p>
+        <p id="metric-arpc" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">MoM Growth</p>
+        <p id="metric-mom" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Best Month <span id="metric-best-year" class="text-slate-500"></span></p>
+        <p id="metric-best-month" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+      <div class="bg-card rounded-2xl p-4 sm:p-5 shadow-card border border-white/5">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Worst Month <span id="metric-worst-year" class="text-slate-500"></span></p>
+        <p id="metric-worst-month" class="skel h-7 w-24 font-display font-700 text-xl tabular"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= SECTION 4 — CLIENTS ============================= -->
+  <section aria-label="Clients" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="font-display font-700 text-lg">Clients</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="client-search" type="text" placeholder="Search by name…" class="bg-navy border border-white/10 rounded-lg px-3 py-2 text-sm w-40 sm:w-56 placeholder:text-slate-500" />
+        <select id="client-status-filter" class="bg-navy border border-white/10 rounded-lg px-3 py-2 text-sm">
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="pending">Pending</option>
+          <option value="churned">Churned</option>
+        </select>
+      </div>
+    </div>
+    <div class="overflow-x-auto -mx-4 sm:mx-0">
+      <table class="w-full text-sm min-w-[720px]">
+        <thead>
+          <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/10 bg-card">
+            <th class="py-2.5 px-4 sm:px-2 font-medium">Name</th>
+            <th class="py-2.5 px-2 font-medium">Agency</th>
+            <th class="py-2.5 px-2 font-medium">Plan</th>
+            <th class="py-2.5 px-2 font-medium">Monthly Fee</th>
+            <th class="py-2.5 px-2 font-medium">Status</th>
+            <th class="py-2.5 px-2 font-medium">Renewed</th>
+            <th class="py-2.5 px-2 font-medium">Date Joined</th>
+            <th class="py-2.5 px-2 font-medium">Corridor</th>
+          </tr>
+        </thead>
+        <tbody id="clients-tbody" class="divide-y divide-white/5"></tbody>
+      </table>
+      <p id="clients-empty" class="hidden text-center text-slate-500 text-sm py-8">No clients match your filters.</p>
+    </div>
+  </section>
+
+  <!-- ============================= SECTION 5 — PAYMENT HISTORY ============================= -->
+  <section aria-label="Payment history" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="font-display font-700 text-lg">Payment History</h2>
+      <div class="text-right">
+        <p class="text-[11px] uppercase tracking-wider text-slate-400">Year to Date</p>
+        <p id="payments-ytd" class="skel h-6 w-24 font-display font-700 text-lg text-gold-light tabular"></p>
+      </div>
+    </div>
+    <div id="payments-groups" class="space-y-6"></div>
+    <p id="payments-empty" class="hidden text-center text-slate-500 text-sm py-8">No payments recorded yet.</p>
+  </section>
+
+  <!-- ============================= SECTION 6 — LEADS DELIVERED ============================= -->
+  <section aria-label="Leads delivered" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="font-display font-700 text-lg">Leads Delivered</h2>
+      <div class="flex gap-6 text-right">
+        <div>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400">Total Leads (All Time)</p>
+          <p id="leads-total" class="skel h-6 w-16 font-display font-700 text-lg tabular ml-auto"></p>
+        </div>
+        <div>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400">Cost / Lead</p>
+          <p id="leads-cpl" class="skel h-6 w-16 font-display font-700 text-lg text-gold-light tabular ml-auto"></p>
+        </div>
+      </div>
+    </div>
+    <div class="overflow-x-auto -mx-4 sm:mx-0">
+      <table class="w-full text-sm min-w-[640px]">
+        <thead>
+          <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/10">
+            <th class="py-2.5 px-4 sm:px-2 font-medium">Date</th>
+            <th class="py-2.5 px-2 font-medium">Client</th>
+            <th class="py-2.5 px-2 font-medium">Leads This Month</th>
+            <th class="py-2.5 px-2 font-medium">Qualified</th>
+            <th class="py-2.5 px-2 font-medium">Disqualified</th>
+          </tr>
+        </thead>
+        <tbody id="leads-tbody" class="divide-y divide-white/5"></tbody>
+      </table>
+      <p id="leads-empty" class="hidden text-center text-slate-500 text-sm py-8">No leads recorded yet.</p>
+    </div>
+  </section>
+
+  <footer class="text-center text-[11px] text-slate-600 py-6">
+    Kringstar Lead Gen — internal operations dashboard. Data source: Google Sheets.
+  </footer>
+
+</main>
+
+<script>
+/* =====================================================================
+   CONFIG — edit these two values, then this dashboard goes live.
+   ===================================================================== */
+const CONFIG = {
+  SHEET_ID: 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE',        // From the sheet URL: /d/<THIS PART>/edit
+  API_KEY:  'PASTE_YOUR_GOOGLE_SHEETS_API_KEY_HERE',   // Google Cloud Console → APIs & Services → Credentials
+  TABS: { clients: 'Clients', payments: 'Payments', leads: 'Leads Delivered' },
+  REFRESH_MS: 60000,
+};
+
+/* Note: the Sheets API v4 with only an API key can read a sheet ONLY if it is
+   shared as "Anyone with the link — Viewer". No OAuth flow is implemented here. */
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const state = {
+  clients: [],
+  payments: [],
+  leads: [],
+  selectedYear: new Date().getFullYear(),
+  selectedMonth: 'all', // 'all' or 0-11
+  clientSearch: '',
+  clientStatusFilter: 'all',
+  chart: null,
+  refreshTimer: null,
+};
+
+/* ------------------------------- helpers ------------------------------- */
+
+function parseMoney(v) {
+  if (v === null || v === undefined) return 0;
+  const n = parseFloat(String(v).replace(/[₦,\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function fmtNaira(n, opts = {}) {
+  const val = Number(n) || 0;
+  return '₦' + val.toLocaleString('en-NG', { maximumFractionDigits: opts.decimals ? 2 : 0 });
+}
+
+function fmtCompactNaira(n) {
+  const val = Number(n) || 0;
+  if (Math.abs(val) >= 1_000_000) return '₦' + (val / 1_000_000).toFixed(2) + 'M';
+  if (Math.abs(val) >= 1_000) return '₦' + (val / 1_000).toFixed(1) + 'K';
+  return fmtNaira(val);
+}
+
+function monthIndexFromRow(row) {
+  // Try the explicit "Month" column first (name or number), else parse Date.
+  const raw = (row['Month'] || '').toString().trim();
+  if (raw) {
+    const asNum = parseInt(raw, 10);
+    if (!isNaN(asNum) && asNum >= 1 && asNum <= 12) return asNum - 1;
+    const idx = MONTH_NAMES.findIndex(m => m.toLowerCase() === raw.toLowerCase());
+    if (idx !== -1) return idx;
+    const idxShort = MONTH_SHORT.findIndex(m => m.toLowerCase() === raw.toLowerCase());
+    if (idxShort !== -1) return idxShort;
+  }
+  const d = parseDate(row['Date']);
+  return d ? d.getMonth() : null;
+}
+
+function yearFromRow(row) {
+  const raw = (row['Year'] || '').toString().trim();
+  const asNum = parseInt(raw, 10);
+  if (!isNaN(asNum) && asNum > 2000) return asNum;
+  const d = parseDate(row['Date']);
+  return d ? d.getFullYear() : null;
+}
+
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function nextRenewalDate(dateJoinedStr) {
+  // Assumes a monthly billing cycle anchored to the day-of-month the client joined.
+  const joined = parseDate(dateJoinedStr);
+  if (!joined) return null;
+  const day = joined.getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let candidate = new Date(today.getFullYear(), today.getMonth(), day);
+  if (candidate < today) {
+    candidate = new Date(today.getFullYear(), today.getMonth() + 1, day);
+  }
+  return candidate;
+}
+
+function computeUpcomingRenewals(withinDays = 7) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return state.clients
+    .filter(c => (c['Status'] || '').toLowerCase() !== 'churned')
+    .map(c => {
+      const renewal = nextRenewalDate(c['Date Joined']);
+      if (!renewal) return null;
+      const daysUntil = Math.round((renewal - today) / 86400000);
+      return { name: c['Client Name'], date: renewal, daysUntil };
+    })
+    .filter(r => r && r.daysUntil >= 0 && r.daysUntil <= withinDays)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+}
+
+function hasPaidThisMonth(clientName) {
+  const now = new Date();
+  const target = (clientName || '').trim().toLowerCase();
+  if (!target) return false;
+  return state.payments.some(p =>
+    (p['Client Name'] || '').trim().toLowerCase() === target &&
+    yearFromRow(p) === now.getFullYear() &&
+    monthIndexFromRow(p) === now.getMonth()
+  );
+}
+
+function statusClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'active') return 'badge-active';
+  if (s === 'pending') return 'badge-pending';
+  if (s === 'churned') return 'badge-churned';
+  return 'bg-slate-700/40 text-slate-300 border border-white/10';
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove('skel', 'h-6', 'h-7', 'h-8', 'w-16', 'w-24', 'w-28');
+}
+
+/* --------------------------- sheet fetching --------------------------- */
+
+async function fetchTab(tabName) {
+  const range = encodeURIComponent(`${tabName}!A:Z`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${range}?key=${CONFIG.API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`${tabName} (${res.status}): ${body.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return rowsToObjects(data.values || []);
+}
+
+function rowsToObjects(rows) {
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => (h || '').trim());
+  return rows.slice(1)
+    .filter(r => r.some(cell => (cell || '').toString().trim() !== ''))
+    .map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
+      return obj;
+    });
+}
+
+async function loadAllData() {
+  const isConfigured = CONFIG.SHEET_ID && !CONFIG.SHEET_ID.startsWith('PASTE_') &&
+                        CONFIG.API_KEY && !CONFIG.API_KEY.startsWith('PASTE_');
+  document.getElementById('config-warning').classList.toggle('hidden', isConfigured);
+  if (!isConfigured) {
+    setConnStatus('offline', 'Not configured');
+    return;
+  }
+
+  setConnStatus('loading', 'Syncing…');
+  hideError();
+
+  try {
+    const [clients, payments, leads] = await Promise.all([
+      fetchTab(CONFIG.TABS.clients),
+      fetchTab(CONFIG.TABS.payments),
+      fetchTab(CONFIG.TABS.leads),
+    ]);
+    state.clients = clients;
+    state.payments = payments;
+    state.leads = leads;
+
+    populateYearSelector();
+    renderAll();
+
+    setConnStatus('online', 'Live');
+    document.getElementById('last-updated').textContent = 'Last updated — ' + new Date().toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch (err) {
+    console.error(err);
+    setConnStatus('error', 'Connection error');
+    showError(err.message || 'Unknown error');
+  }
+}
+
+function setConnStatus(kind, label) {
+  const el = document.getElementById('conn-status');
+  const dotColor = { loading: 'bg-gold-light animate-pulse', online: 'bg-green-400', error: 'bg-red-400', offline: 'bg-slate-600' }[kind] || 'bg-slate-600';
+  el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>${label}`;
+}
+
+function showError(detail) {
+  document.getElementById('error-banner').classList.remove('hidden');
+  document.getElementById('error-detail').textContent = detail;
+}
+function hideError() {
+  document.getElementById('error-banner').classList.add('hidden');
+}
+
+/* ------------------------------ rendering ------------------------------ */
+
+function populateYearSelector() {
+  const years = new Set([new Date().getFullYear()]);
+  state.payments.forEach(p => { const y = yearFromRow(p); if (y) years.add(y); });
+  const sorted = Array.from(years).sort((a, b) => a - b);
+  const sel = document.getElementById('year-selector');
+  const prevValue = state.selectedYear;
+  sel.innerHTML = sorted.map(y => `<option value="${y}">${y}</option>`).join('');
+  if (sorted.includes(prevValue)) sel.value = prevValue;
+  else state.selectedYear = parseInt(sel.value, 10);
+}
+
+function populateMonthSelector() {
+  const sel = document.getElementById('month-selector');
+  const opts = ['<option value="all">Full year</option>']
+    .concat(MONTH_NAMES.map((name, i) => `<option value="${i}">${name}</option>`));
+  sel.innerHTML = opts.join('');
+}
+
+function renderAll() {
+  renderTopStats();
+  renderRevenueChart();
+  renderMetrics();
+  renderClients();
+  renderPayments();
+  renderLeads();
+}
+
+function renderTopStats() {
+  setText('stat-total-clients', String(state.clients.length));
+
+  const activeClients = state.clients.filter(c => (c['Status'] || '').toLowerCase() === 'active');
+  setText('stat-active-clients', String(activeClients.length));
+
+  const mrr = activeClients.reduce((sum, c) => sum + parseMoney(c['Monthly Fee']), 0);
+  setText('stat-mrr', fmtNaira(mrr));
+
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const revenueThisYear = state.payments
+    .filter(p => yearFromRow(p) === thisYear)
+    .reduce((sum, p) => sum + parseMoney(p['Amount Received']), 0);
+  setText('stat-revenue-ytd', fmtNaira(revenueThisYear));
+
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const revenueLastMonth = state.payments
+    .filter(p => yearFromRow(p) === lastMonthDate.getFullYear() && monthIndexFromRow(p) === lastMonthDate.getMonth())
+    .reduce((sum, p) => sum + parseMoney(p['Amount Received']), 0);
+  setText('stat-revenue-last-month', fmtNaira(revenueLastMonth));
+
+  const revenueThisMonth = state.payments
+    .filter(p => yearFromRow(p) === now.getFullYear() && monthIndexFromRow(p) === now.getMonth())
+    .reduce((sum, p) => sum + parseMoney(p['Amount Received']), 0);
+  setText('stat-revenue-this-month', fmtNaira(revenueThisMonth));
+
+  const pendingCount = state.clients.filter(c => (c['Status'] || '').toLowerCase() === 'pending').length;
+  setText('stat-pending-clients', String(pendingCount));
+
+  const renewedCount = activeClients.filter(c => hasPaidThisMonth(c['Client Name'])).length;
+  setText('stat-renewed-this-month', `${renewedCount}/${activeClients.length}`);
+
+  const renewalsDue = computeUpcomingRenewals(7);
+  setText('stat-renewals-due', String(renewalsDue.length));
+  renderRenewalBanner(renewalsDue);
+}
+
+function renderRenewalBanner(renewalsDue) {
+  const banner = document.getElementById('renewal-banner');
+  const textEl = document.getElementById('renewal-banner-text');
+  if (!renewalsDue.length) {
+    banner.classList.add('hidden');
+    return;
+  }
+  const fmtDay = (n) => (n === 0 ? 'today' : n === 1 ? 'in 1 day' : `in ${n} days`);
+  const fmtDate = (d) => d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  const first = renewalsDue[0];
+  let msg = `${escapeHtml(first.name)} renews ${fmtDay(first.daysUntil)} — ${fmtDate(first.date)}.`;
+  if (renewalsDue.length > 1) {
+    msg += ` +${renewalsDue.length - 1} more renewal${renewalsDue.length - 1 > 1 ? 's' : ''} due within 7 days.`;
+  }
+  textEl.innerHTML = msg;
+  banner.classList.remove('hidden');
+}
+
+function monthlyTotalsForYear(year) {
+  const totals = new Array(12).fill(0);
+  state.payments.forEach(p => {
+    if (yearFromRow(p) !== year) return;
+    const mi = monthIndexFromRow(p);
+    if (mi === null) return;
+    totals[mi] += parseMoney(p['Amount Received']);
+  });
+  return totals;
+}
+
+function daysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function dailyTotalsForMonth(year, monthIndex) {
+  const numDays = daysInMonth(year, monthIndex);
+  const totals = new Array(numDays).fill(0);
+  state.payments.forEach(p => {
+    if (yearFromRow(p) !== year) return;
+    if (monthIndexFromRow(p) !== monthIndex) return;
+    const d = parseDate(p['Date']);
+    const dayOfMonth = d ? d.getDate() : null;
+    if (!dayOfMonth) return; // rows without a parseable Date can't be placed on a specific day
+    totals[dayOfMonth - 1] += parseMoney(p['Amount Received']);
+  });
+  return totals;
+}
+
+function renderRevenueChart() {
+  const year = state.selectedYear;
+  const month = state.selectedMonth;
+  const isDailyView = month !== 'all';
+
+  const ctx = document.getElementById('revenue-chart').getContext('2d');
+  if (state.chart) state.chart.destroy();
+
+  let labels, current, datasets;
+
+  if (isDailyView) {
+    const monthIndex = parseInt(month, 10);
+    document.getElementById('chart-year-label').textContent = `${MONTH_NAMES[monthIndex]} ${year} — by day`;
+    document.getElementById('legend-best-label').textContent = 'Best day';
+    document.getElementById('legend-prior-wrap').classList.add('hidden');
+
+    current = dailyTotalsForMonth(year, monthIndex);
+    labels = current.map((_, i) => String(i + 1));
+    const maxVal = Math.max(...current, 0);
+    const barColors = current.map(v => (v === maxVal && maxVal > 0 ? '#D9A82B' : '#3B4966'));
+
+    datasets = [{
+      label: `${MONTH_NAMES[monthIndex]} ${year} Revenue`,
+      data: current,
+      backgroundColor: barColors,
+      borderRadius: 4,
+      borderSkipped: false,
+      maxBarThickness: 28,
+    }];
+  } else {
+    document.getElementById('chart-year-label').textContent = `Jan – Dec ${year}`;
+    document.getElementById('legend-best-label').textContent = 'Best month';
+    document.getElementById('legend-prior-wrap').classList.remove('hidden');
+
+    current = monthlyTotalsForYear(year);
+    const prior = monthlyTotalsForYear(year - 1);
+    const priorHasData = prior.some(v => v > 0);
+    const maxVal = Math.max(...current, 0);
+    labels = MONTH_SHORT;
+
+    const barColors = current.map(v => (v === maxVal && maxVal > 0 ? '#D9A82B' : '#3B4966'));
+
+    datasets = [{
+      label: `${year} Revenue`,
+      data: current,
+      backgroundColor: barColors,
+      borderRadius: 6,
+      borderSkipped: false,
+      maxBarThickness: 42,
+    }];
+
+    if (priorHasData) {
+      datasets.push({
+        type: 'line',
+        label: `${year - 1} Revenue`,
+        data: prior,
+        borderColor: '#64748B',
+        borderDash: [4, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: false,
+      });
+    }
+  }
+
+  state.chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1E293B',
+          borderColor: 'rgba(184,134,11,0.4)',
+          borderWidth: 1,
+          titleColor: '#fff',
+          bodyColor: '#CBD5E1',
+          padding: 10,
+          callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtNaira(ctx.parsed.y)}` },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#64748B', font: { size: 11 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#64748B', font: { size: 11 }, callback: (v) => fmtCompactNaira(v) },
+        },
+      },
+    },
+  });
+}
+
+function renderMetrics() {
+  const payments = state.payments;
+  const clientNamesInPayments = new Set(payments.map(p => p['Client Name']).filter(Boolean));
+  const totalPaidAllTime = payments.reduce((sum, p) => sum + parseMoney(p['Amount Received']), 0);
+  const totalAdSpendAllTime = payments.reduce((sum, p) => sum + parseMoney(p['Ad Spend']), 0);
+
+  const ltv = clientNamesInPayments.size ? totalPaidAllTime / clientNamesInPayments.size : 0;
+  setText('metric-ltv', fmtNaira(ltv));
+
+  const totalClientsAcquired = state.clients.length;
+  const cac = totalClientsAcquired ? totalAdSpendAllTime / totalClientsAcquired : 0;
+  setText('metric-cac', fmtNaira(cac));
+
+  const activeClients = state.clients.filter(c => (c['Status'] || '').toLowerCase() === 'active');
+  const mrr = activeClients.reduce((sum, c) => sum + parseMoney(c['Monthly Fee']), 0);
+  const arpc = activeClients.length ? mrr / activeClients.length : 0;
+  setText('metric-arpc', fmtNaira(arpc));
+
+  const now = new Date();
+  const thisMonthTotal = payments
+    .filter(p => yearFromRow(p) === now.getFullYear() && monthIndexFromRow(p) === now.getMonth())
+    .reduce((s, p) => s + parseMoney(p['Amount Received']), 0);
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthTotal = payments
+    .filter(p => yearFromRow(p) === lastMonthDate.getFullYear() && monthIndexFromRow(p) === lastMonthDate.getMonth())
+    .reduce((s, p) => s + parseMoney(p['Amount Received']), 0);
+  const mom = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
+  const momEl = document.getElementById('metric-mom');
+  momEl.classList.remove('skel', 'h-7', 'w-24');
+  if (mom === null) {
+    momEl.textContent = '—';
+    momEl.className = 'font-display font-700 text-xl tabular text-slate-400';
+  } else {
+    momEl.textContent = (mom >= 0 ? '+' : '') + mom.toFixed(1) + '%';
+    momEl.className = 'font-display font-700 text-xl tabular ' + (mom >= 0 ? 'text-green-400' : 'text-red-400');
+  }
+
+  const year = state.selectedYear;
+  const totals = monthlyTotalsForYear(year);
+  const withData = totals.map((v, i) => ({ v, i })).filter(x => x.v > 0);
+  document.getElementById('metric-best-year').textContent = `(${year})`;
+  document.getElementById('metric-worst-year').textContent = `(${year})`;
+  if (withData.length) {
+    const best = withData.reduce((a, b) => (b.v > a.v ? b : a));
+    const worst = withData.reduce((a, b) => (b.v < a.v ? b : a));
+    setText('metric-best-month', `${MONTH_SHORT[best.i]} — ${fmtCompactNaira(best.v)}`);
+    setText('metric-worst-month', `${MONTH_SHORT[worst.i]} — ${fmtCompactNaira(worst.v)}`);
+  } else {
+    setText('metric-best-month', '—');
+    setText('metric-worst-month', '—');
+  }
+}
+
+function renderClients() {
+  const search = state.clientSearch.trim().toLowerCase();
+  const filter = state.clientStatusFilter;
+  const rows = state.clients.filter(c => {
+    const matchesSearch = !search || (c['Client Name'] || '').toLowerCase().includes(search);
+    const matchesStatus = filter === 'all' || (c['Status'] || '').toLowerCase() === filter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const tbody = document.getElementById('clients-tbody');
+  document.getElementById('clients-empty').classList.toggle('hidden', rows.length > 0);
+
+  tbody.innerHTML = rows.map(c => {
+    const status = (c['Status'] || '').toLowerCase();
+    let renewedCell;
+    if (status === 'churned') {
+      renewedCell = '<span class="text-slate-600">—</span>';
+    } else if (hasPaidThisMonth(c['Client Name'])) {
+      renewedCell = '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-active">Renewed</span>';
+    } else {
+      renewedCell = '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-pending">Not Yet</span>';
+    }
+    return `
+    <tr class="hover:bg-white/[0.03] transition-colors">
+      <td class="py-2.5 px-4 sm:px-2 font-medium">${escapeHtml(c['Client Name'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Agency'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Plan'])}</td>
+      <td class="py-2.5 px-2 tabular">${fmtNaira(parseMoney(c['Monthly Fee']))}</td>
+      <td class="py-2.5 px-2"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(c['Status'])}">${escapeHtml(c['Status']) || '—'}</span></td>
+      <td class="py-2.5 px-2">${renewedCell}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Date Joined'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Corridor'])}</td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function renderPayments() {
+  const payments = state.payments.filter(p => yearFromRow(p) !== null);
+  const container = document.getElementById('payments-groups');
+  document.getElementById('payments-empty').classList.toggle('hidden', payments.length > 0);
+
+  const ytd = payments
+    .filter(p => yearFromRow(p) === new Date().getFullYear())
+    .reduce((s, p) => s + parseMoney(p['Amount Received']), 0);
+  setText('payments-ytd', fmtNaira(ytd));
+
+  const groups = new Map(); // key "YYYY-MM" -> rows
+  payments.forEach(p => {
+    const y = yearFromRow(p);
+    const m = monthIndexFromRow(p);
+    if (y === null || m === null) return;
+    const key = `${y}-${String(m).padStart(2, '0')}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  });
+
+  const sortedKeys = Array.from(groups.keys()).sort().reverse();
+
+  container.innerHTML = sortedKeys.map(key => {
+    const [y, m] = key.split('-').map(Number);
+    const rows = groups.get(key);
+    const subtotal = rows.reduce((s, p) => s + parseMoney(p['Amount Received']), 0);
+    const rowsHtml = rows.map(p => `
+      <tr class="hover:bg-white/[0.03] transition-colors">
+        <td class="py-2 px-4 sm:px-2 text-slate-300">${escapeHtml(p['Date'])}</td>
+        <td class="py-2 px-2 font-medium">${escapeHtml(p['Client Name'])}</td>
+        <td class="py-2 px-2 tabular">${fmtNaira(parseMoney(p['Amount Received']))}</td>
+        <td class="py-2 px-2 tabular text-slate-400">${fmtNaira(parseMoney(p['Ad Spend']))}</td>
+        <td class="py-2 px-2 tabular text-gold-light">${fmtNaira(parseMoney(p['Net Revenue']) || (parseMoney(p['Amount Received']) - parseMoney(p['Ad Spend'])))}</td>
+      </tr>
+    `).join('');
+    return `
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-slate-200">${MONTH_NAMES[m]} ${y}</h3>
+          <span class="text-sm font-semibold text-gold-light tabular">${fmtNaira(subtotal)}</span>
+        </div>
+        <div class="overflow-x-auto -mx-4 sm:mx-0">
+          <table class="w-full text-sm min-w-[560px]">
+            <thead>
+              <tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-white/10">
+                <th class="py-1.5 px-4 sm:px-2 font-medium">Date</th>
+                <th class="py-1.5 px-2 font-medium">Client</th>
+                <th class="py-1.5 px-2 font-medium">Amount Received</th>
+                <th class="py-1.5 px-2 font-medium">Ad Spend</th>
+                <th class="py-1.5 px-2 font-medium">Net Revenue</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLeads() {
+  const leads = state.leads;
+  document.getElementById('leads-empty').classList.toggle('hidden', leads.length > 0);
+
+  const totalLeads = leads.reduce((s, l) => s + (parseInt(l['Leads This Month'], 10) || 0), 0);
+  setText('leads-total', String(totalLeads));
+
+  const totalAdSpend = state.payments.reduce((s, p) => s + parseMoney(p['Ad Spend']), 0);
+  const cpl = totalLeads ? totalAdSpend / totalLeads : 0;
+  setText('leads-cpl', totalLeads ? fmtNaira(cpl, { decimals: true }) : '—');
+
+  const sorted = [...leads].sort((a, b) => {
+    const da = parseDate(a['Date']); const db = parseDate(b['Date']);
+    if (!da || !db) return 0;
+    return db - da;
+  });
+
+  document.getElementById('leads-tbody').innerHTML = sorted.map(l => `
+    <tr class="hover:bg-white/[0.03] transition-colors">
+      <td class="py-2.5 px-4 sm:px-2 text-slate-300">${escapeHtml(l['Date'])}</td>
+      <td class="py-2.5 px-2 font-medium">${escapeHtml(l['Client Name'])}</td>
+      <td class="py-2.5 px-2 tabular">${escapeHtml(l['Leads This Month'])}</td>
+      <td class="py-2.5 px-2 tabular text-green-400">${escapeHtml(l['Qualified'])}</td>
+      <td class="py-2.5 px-2 tabular text-red-400">${escapeHtml(l['Disqualified'])}</td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ------------------------------- wiring ------------------------------- */
+
+document.getElementById('year-selector').addEventListener('change', (e) => {
+  state.selectedYear = parseInt(e.target.value, 10);
+  renderRevenueChart();
+  renderMetrics();
+});
+
+document.getElementById('month-selector').addEventListener('change', (e) => {
+  state.selectedMonth = e.target.value;
+  renderRevenueChart();
+});
+
+document.getElementById('client-search').addEventListener('input', (e) => {
+  state.clientSearch = e.target.value;
+  renderClients();
+});
+
+document.getElementById('client-status-filter').addEventListener('change', (e) => {
+  state.clientStatusFilter = e.target.value;
+  renderClients();
+});
+
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  const icon = document.getElementById('refresh-icon');
+  icon.style.transform = 'rotate(360deg)';
+  setTimeout(() => { icon.style.transform = 'rotate(0deg)'; }, 500);
+  loadAllData();
+});
+
+function updateTodayDate() {
+  const el = document.getElementById('today-date');
+  if (!el) return;
+  el.textContent = new Date().toLocaleDateString('en-NG', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
+
+/* ------------------------------- boot ------------------------------- */
+
+populateMonthSelector();
+populateYearSelector();
+updateTodayDate();
+setInterval(updateTodayDate, 30000);
+loadAllData();
+if (state.refreshTimer) clearInterval(state.refreshTimer);
+state.refreshTimer = setInterval(loadAllData, CONFIG.REFRESH_MS);
+</script>
+</body>
+</html>
