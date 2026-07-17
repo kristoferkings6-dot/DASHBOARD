@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Kringstar Lead Gen — Operations Dashboard</title>
+<title>Kringstar Atlas — Operations Dashboard</title>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -255,7 +255,7 @@
       </div>
     </div>
     <div class="overflow-x-auto -mx-4 sm:mx-0">
-      <table class="w-full text-sm min-w-[720px]">
+      <table class="w-full text-sm min-w-[1080px]">
         <thead>
           <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/10 bg-card">
             <th class="py-2.5 px-4 sm:px-2 font-medium">Name</th>
@@ -266,6 +266,9 @@
             <th class="py-2.5 px-2 font-medium">Renewed</th>
             <th class="py-2.5 px-2 font-medium">Date Joined</th>
             <th class="py-2.5 px-2 font-medium">Corridor</th>
+            <th class="py-2.5 px-2 font-medium">Segment</th>
+            <th class="py-2.5 px-2 font-medium">Listings</th>
+            <th class="py-2.5 px-2 font-medium">Recommended Strategy</th>
           </tr>
         </thead>
         <tbody id="clients-tbody" class="divide-y divide-white/5"></tbody>
@@ -441,6 +444,45 @@ function hasPaidThisMonth(clientName) {
     yearFromRow(p) === now.getFullYear() &&
     monthIndexFromRow(p) === now.getMonth()
   );
+}
+
+function recommendStrategy(client) {
+  const corridor = (client['Corridor'] || '').toLowerCase();
+  const segment = (client['Property Segment'] || '').toLowerCase();
+  const listingCount = parseInt(client['Listing Count'], 10) || 0;
+
+  // 1. Audience tier from corridor
+  let audienceTier = 'Mid-market';
+  if (/lekki phase 1|victoria island|\bvi\b|ikoyi|banana island/.test(corridor)) {
+    audienceTier = 'Luxury';
+  } else if (/ajah|sangotedo|epe/.test(corridor)) {
+    audienceTier = 'Mass-market';
+  }
+
+  // 2. Ad angle from property segment
+  let angle = 'General availability messaging';
+  if (/off[-\s]?plan/.test(segment)) {
+    angle = 'Payment plan & developer-trust messaging';
+  } else if (/land|plot/.test(segment)) {
+    angle = 'Investment & appreciation angle';
+  } else if (/complet|ready|move[-\s]?in/.test(segment)) {
+    angle = 'Move-in urgency messaging';
+  } else if (/luxury|high[-\s]?end/.test(segment)) {
+    angle = 'Aspirational lifestyle creative';
+  }
+
+  // 3. Channel mix from listing volume
+  let channel = 'Targeted click-to-WhatsApp + manual outreach';
+  if (listingCount > 20) {
+    channel = 'Full-funnel: paid ads + carousel + retargeting';
+  } else if (listingCount > 5) {
+    channel = 'Click-to-WhatsApp + Instagram feed retargeting';
+  }
+  if (audienceTier === 'Luxury') {
+    channel += ' + LinkedIn/IG Stories for HNWI reach';
+  }
+
+  return { audienceTier, angle, channel };
 }
 
 function statusClass(status) {
@@ -816,6 +858,9 @@ function renderClients() {
     } else {
       renewedCell = '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-pending">Not Yet</span>';
     }
+    const strategy = recommendStrategy(c);
+    const strategyTooltip = `Audience: ${strategy.audienceTier}\nAngle: ${strategy.angle}\nChannel: ${strategy.channel}`;
+
     return `
     <tr class="hover:bg-white/[0.03] transition-colors">
       <td class="py-2.5 px-4 sm:px-2 font-medium">${escapeHtml(c['Client Name'])}</td>
@@ -826,6 +871,9 @@ function renderClients() {
       <td class="py-2.5 px-2">${renewedCell}</td>
       <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Date Joined'])}</td>
       <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Corridor'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Property Segment'])}</td>
+      <td class="py-2.5 px-2 tabular text-slate-300">${escapeHtml(c['Listing Count'])}</td>
+      <td class="py-2.5 px-2 text-gold-light text-xs" title="${escapeHtml(strategyTooltip)}">${escapeHtml(strategy.angle)} <span class="text-slate-500">·</span> ${escapeHtml(strategy.channel)}</td>
     </tr>
   `;
   }).join('');
