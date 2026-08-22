@@ -240,6 +240,21 @@
     </div>
   </section>
 
+  <!-- ============================= SECTION 4 — CLIENT OPERATIONS ============================= -->
+  <section aria-label="Client operations" class="space-y-4">
+    <div class="flex items-end justify-between gap-3">
+      <div><h2 class="font-display font-700 text-lg">Client Operations</h2><p class="text-xs text-slate-400">Onboarding, campaign health, reporting cadence, and renewal readiness.</p></div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Onboarding Complete</p><p id="ops-onboarding" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">CRM Setup Complete</p><p id="ops-crm" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Campaigns Live</p><p id="ops-campaign" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Leads This Week</p><p id="ops-leads-week" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Reports Due</p><p id="ops-reports-due" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+      <div class="bg-card rounded-2xl p-4 shadow-card border border-white/5"><p class="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Renewals Next 30 Days</p><p id="ops-renewals-30" class="font-display font-800 text-2xl text-gold-light tabular">—</p></div>
+    </div>
+  </section>
+
   <!-- ============================= SECTION 4 — CLIENTS ============================= -->
   <section aria-label="Clients" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -251,11 +266,12 @@
           <option value="active">Active</option>
           <option value="pending">Pending</option>
           <option value="churned">Churned</option>
+          <option value="inactive">Inactive</option>
         </select>
       </div>
     </div>
     <div class="overflow-x-auto -mx-4 sm:mx-0">
-      <table class="w-full text-sm min-w-[1080px]">
+      <table class="w-full text-sm min-w-[1750px]">
         <thead>
           <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/10 bg-card">
             <th class="py-2.5 px-4 sm:px-2 font-medium">Name</th>
@@ -268,6 +284,13 @@
             <th class="py-2.5 px-2 font-medium">Corridor</th>
             <th class="py-2.5 px-2 font-medium">Segment</th>
             <th class="py-2.5 px-2 font-medium">Listings</th>
+            <th class="py-2.5 px-2 font-medium">Onboarding</th>
+            <th class="py-2.5 px-2 font-medium">CRM Setup</th>
+            <th class="py-2.5 px-2 font-medium">Campaign</th>
+            <th class="py-2.5 px-2 font-medium">Last Contact</th>
+            <th class="py-2.5 px-2 font-medium">Last Report</th>
+            <th class="py-2.5 px-2 font-medium">Leads / Target</th>
+            <th class="py-2.5 px-2 font-medium">Renewal Date</th>
             <th class="py-2.5 px-2 font-medium">Recommended Strategy</th>
           </tr>
         </thead>
@@ -446,6 +469,20 @@ function hasPaidThisMonth(clientName) {
   );
 }
 
+function boolValue(v) { return ['true','yes','1','complete','completed','done','live'].includes(String(v || '').trim().toLowerCase()); }
+function boolBadge(v) { return boolValue(v) ? '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-active">Yes</span>' : '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-pending">No</span>'; }
+function explicitRenewalDate(client) { return client['Renewal Date'] || nextRenewalDate(client['Date Joined'])?.toLocaleDateString('en-NG', {day:'numeric',month:'short',year:'numeric'}) || '—'; }
+function daysSince(dateText) { const d=parseDate(dateText); return d ? Math.floor((new Date()-d)/86400000) : null; }
+function renderOperationsSummary() {
+  const active=state.clients.filter(c => ['active','pending'].includes((c['Status']||'').toLowerCase()));
+  const count=(key)=>active.filter(c=>boolValue(c[key])).length;
+  setText('ops-onboarding', `${count('Onboarding Complete')}/${active.length}`); setText('ops-crm', `${count('CRM Setup Complete')}/${active.length}`); setText('ops-campaign', `${count('Campaign Live')}/${active.length}`);
+  setText('ops-leads-week', String(active.reduce((s,c)=>s+(parseInt(c['Lead this week']||c['Leads This Week'],10)||0),0)));
+  setText('ops-reports-due', String(active.filter(c=>{const d=daysSince(c['Last Weekly Report Sent']); return d===null || d>=7;}).length));
+  const today=new Date(); const horizon=new Date(today.getFullYear(),today.getMonth(),today.getDate()+30);
+  setText('ops-renewals-30', String(active.filter(c=>{const d=parseDate(c['Renewal Date']); return d && d>=today && d<=horizon;}).length));
+}
+
 function recommendStrategy(client) {
   const corridor = (client['Corridor'] || '').toLowerCase();
   const segment = (client['Property Segment'] || '').toLowerCase();
@@ -490,6 +527,7 @@ function statusClass(status) {
   if (s === 'active') return 'badge-active';
   if (s === 'pending') return 'badge-pending';
   if (s === 'churned') return 'badge-churned';
+  if (s === 'inactive' || s === 'unactive') return 'bg-slate-700/40 text-slate-300 border border-white/10';
   return 'bg-slate-700/40 text-slate-300 border border-white/10';
 }
 
@@ -599,6 +637,7 @@ function renderAll() {
   renderRevenueChart();
   renderMetrics();
   renderClients();
+  renderOperationsSummary();
   renderPayments();
   renderLeads();
 }
@@ -873,6 +912,13 @@ function renderClients() {
       <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Corridor'])}</td>
       <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Property Segment'])}</td>
       <td class="py-2.5 px-2 tabular text-slate-300">${escapeHtml(c['Listing Count'])}</td>
+      <td class="py-2.5 px-2">${boolBadge(c['Onboarding Complete'])}</td>
+      <td class="py-2.5 px-2">${boolBadge(c['CRM Setup Complete'])}</td>
+      <td class="py-2.5 px-2">${boolBadge(c['Campaign Live'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Last Client Contact']) || '—'}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Last Weekly Report Sent']) || '—'}</td>
+      <td class="py-2.5 px-2 tabular text-gold-light">${escapeHtml(c['Lead this week'] || c['Leads This Week'] || '0')} / ${escapeHtml(c['Lead target'] || c['Lead Target'] || '—')}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(explicitRenewalDate(c))}</td>
       <td class="py-2.5 px-2 text-gold-light text-xs" title="${escapeHtml(strategyTooltip)}">${escapeHtml(strategy.angle)} <span class="text-slate-500">·</span> ${escapeHtml(strategy.channel)}</td>
     </tr>
   `;
