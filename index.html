@@ -90,7 +90,7 @@
 
 <!-- ============================= CONFIG BANNER (remove-me if desired) ============================= -->
 <div id="config-warning" class="hidden bg-gold/90 text-navy text-sm font-semibold text-center py-2 px-4">
-  ⚠️ Set your SHEET_ID and API_KEY in the CONFIG object near the top of the &lt;script&gt; tag before this dashboard will load live data.
+  ⚠️ Set your Make dashboard data endpoint in the CONFIG object before this dashboard will load live data.
 </div>
 
 <!-- ============================= HEADER ============================= -->
@@ -346,7 +346,7 @@
   </section>
 
   <footer class="text-center text-[11px] text-slate-600 py-6">
-    Kringstar Atlas — internal operations dashboard. Data source: Google Sheets.
+    Kringstar Atlas — internal operations dashboard. Data source: Make dashboard data endpoint.
   </footer>
 
 </main>
@@ -356,10 +356,11 @@
    CONFIG — edit these two values, then this dashboard goes live.
    ===================================================================== */
 const CONFIG = {
-  SHEET_ID: '1bkve00DeemvhfacaKMbPbzzDeqe_RQPiOBvtMNTBuK4',        // From the sheet URL: /d/<THIS PART>/edit
-  API_KEY:  'AIzaSyBeJqbuH4pwoLPqkjLg49fbRo_iiAslBXQ',   // Google Cloud Console → APIs & Services → Credentials
-  TABS: { clients: 'Clients', payments: 'Payments', leads: 'Leads Delivered' },
+  // Create a separate Make Custom Webhook + Webhook Response scenario for dashboard data.
+  DATA_ENDPOINT: 'PASTE_MAKE_DASHBOARD_DATA_WEBHOOK_URL',
+  DASHBOARD_TOKEN: 'PASTE_A_RANDOM_PRIVATE_TOKEN',
   REFRESH_MS: 60000,
+  USE_SAMPLE_DATA_WHEN_OFFLINE: true,
 };
 
 /* Note: the Sheets API v4 with only an API key can read a sheet ONLY if it is
@@ -538,78 +539,46 @@ function setText(id, text) {
   el.classList.remove('skel', 'h-6', 'h-7', 'h-8', 'w-16', 'w-24', 'w-28');
 }
 
-/* --------------------------- sheet fetching --------------------------- */
+/* --------------------------- Make data fetching --------------------------- */
 
-async function fetchTab(tabName) {
-  const range = encodeURIComponent(`${tabName}!A:Z`);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${range}?key=${CONFIG.API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${tabName} (${res.status}): ${body.slice(0, 200)}`);
+const sampleData = {
+  clients: [{
+    'Client Name':'Bamidele Adewale','Agency':'Sample Agency','Plan':'Starter','Monthly Fee':'25000','Status':'Inactive','Date Joined':'2026-06-16','Corridor':'Ajah / Sangotedo','Property Segment':'Apartments','Listing Count':'3','Onboarding Complete':'TRUE','CRM Setup Complete':'TRUE','Campaign Live':'TRUE','Last Client Contact':'2026-07-29','Last Weekly Report Sent':'','Lead this week':'30','Renewal Date':'2026-07-16','Lead target':'8-12'
+  }], payments: [], leads: []
+};
+
+async function fetchDashboardData() {
+  const configured = CONFIG.DATA_ENDPOINT && !CONFIG.DATA_ENDPOINT.startsWith('PASTE_');
+  if (!configured) {
+    document.getElementById('config-warning').classList.remove('hidden');
+    return CONFIG.USE_SAMPLE_DATA_WHEN_OFFLINE ? sampleData : {clients:[], payments:[], leads:[]};
   }
+  const res = await fetch(CONFIG.DATA_ENDPOINT, {
+    method: 'POST', headers: {'Content-Type':'application/json','Accept':'application/json'},
+    body: JSON.stringify({type:'dashboard_data_request', token:CONFIG.DASHBOARD_TOKEN})
+  });
+  if (!res.ok) throw new Error(`Make dashboard endpoint (${res.status})`);
   const data = await res.json();
-  return rowsToObjects(data.values || []);
-}
-
-function rowsToObjects(rows) {
-  if (!rows.length) return [];
-  const headers = rows[0].map(h => (h || '').trim());
-  return rows.slice(1)
-    .filter(r => r.some(cell => (cell || '').toString().trim() !== ''))
-    .map(r => {
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
-      return obj;
-    });
+  if (!data || !Array.isArray(data.clients) || !Array.isArray(data.payments) || !Array.isArray(data.leads)) {
+    throw new Error('Make response must contain clients, payments, and leads arrays');
+  }
+  document.getElementById('config-warning').classList.add('hidden');
+  return data;
 }
 
 async function loadAllData() {
-  const isConfigured = CONFIG.SHEET_ID && !CONFIG.SHEET_ID.startsWith('PASTE_') &&
-                        CONFIG.API_KEY && !CONFIG.API_KEY.startsWith('PASTE_');
-  document.getElementById('config-warning').classList.toggle('hidden', isConfigured);
-  if (!isConfigured) {
-    setConnStatus('offline', 'Not configured');
-    return;
-  }
-
-  setConnStatus('loading', 'Syncing…');
-  hideError();
-
+  setConnStatus('loading', 'Syncing…'); hideError();
   try {
-    const [clients, payments, leads] = await Promise.all([
-      fetchTab(CONFIG.TABS.clients),
-      fetchTab(CONFIG.TABS.payments),
-      fetchTab(CONFIG.TABS.leads),
-    ]);
-    state.clients = clients;
-    state.payments = payments;
-    state.leads = leads;
-
-    populateYearSelector();
-    renderAll();
-
-    setConnStatus('online', 'Live');
-    document.getElementById('last-updated').textContent = 'Last updated — ' + new Date().toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+    const data = await fetchDashboardData();
+    state.clients = data.clients; state.payments = data.payments; state.leads = data.leads;
+    populateYearSelector(); renderAll();
+    const configured = CONFIG.DATA_ENDPOINT && !CONFIG.DATA_ENDPOINT.startsWith('PASTE_');
+    setConnStatus(configured ? 'online' : 'offline', configured ? 'Live via Make' : 'Sample data');
+    document.getElementById('last-updated').textContent = 'Last updated — ' + new Date().toLocaleString('en-NG', {dateStyle:'medium',timeStyle:'short'});
   } catch (err) {
-    console.error(err);
-    setConnStatus('error', 'Connection error');
-    showError(err.message || 'Unknown error');
+    console.error(err); setConnStatus('error','Connection error'); showError(err.message || 'Unknown error');
+    if (CONFIG.USE_SAMPLE_DATA_WHEN_OFFLINE) { state.clients=sampleData.clients; state.payments=[]; state.leads=[]; populateYearSelector(); renderAll(); }
   }
-}
-
-function setConnStatus(kind, label) {
-  const el = document.getElementById('conn-status');
-  const dotColor = { loading: 'bg-gold-light animate-pulse', online: 'bg-green-400', error: 'bg-red-400', offline: 'bg-slate-600' }[kind] || 'bg-slate-600';
-  el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>${label}`;
-}
-
-function showError(detail) {
-  document.getElementById('error-banner').classList.remove('hidden');
-  document.getElementById('error-detail').textContent = detail;
-}
-function hideError() {
-  document.getElementById('error-banner').classList.add('hidden');
 }
 
 /* ------------------------------ rendering ------------------------------ */
