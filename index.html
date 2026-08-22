@@ -90,7 +90,7 @@
 
 <!-- ============================= CONFIG BANNER (remove-me if desired) ============================= -->
 <div id="config-warning" class="hidden bg-gold/90 text-navy text-sm font-semibold text-center py-2 px-4">
-  ⚠️ Set your Make dashboard data endpoint in the CONFIG object before this dashboard will load live data.
+  ⚠️ Set your SHEET_ID and API_KEY in the CONFIG object near the top of the &lt;script&gt; tag before this dashboard will load live data.
 </div>
 
 <!-- ============================= HEADER ============================= -->
@@ -300,6 +300,21 @@
     </div>
   </section>
 
+  <!-- ============================= SECTION 5 — ONBOARDING FORM SUBMISSIONS ============================= -->
+  <section aria-label="Onboarding form submissions" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div><h2 class="font-display font-700 text-lg">Onboarding Form Submissions</h2><p class="text-xs text-slate-400">Every column currently returned from the <span class="text-gold-light">Clients</span> tab is shown here.</p></div>
+      <span id="form-submission-count" class="text-xs text-slate-400"></span>
+    </div>
+    <div class="overflow-x-auto -mx-4 sm:mx-0">
+      <table class="w-full text-sm min-w-[1250px]">
+        <thead id="form-submissions-head"></thead>
+        <tbody id="form-submissions-tbody" class="divide-y divide-white/5"></tbody>
+      </table>
+      <p id="form-submissions-empty" class="hidden text-center text-slate-500 text-sm py-8">No onboarding form submissions found in the Clients tab.</p>
+    </div>
+  </section>
+
   <!-- ============================= SECTION 5 — PAYMENT HISTORY ============================= -->
   <section aria-label="Payment history" class="bg-card rounded-2xl p-4 sm:p-6 shadow-card border border-white/5">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -346,7 +361,7 @@
   </section>
 
   <footer class="text-center text-[11px] text-slate-600 py-6">
-    Kringstar Atlas — internal operations dashboard. Data source: Make dashboard data endpoint.
+    Kringstar Atlas — internal operations dashboard. Data source: Google Sheets.
   </footer>
 
 </main>
@@ -356,11 +371,10 @@
    CONFIG — edit these two values, then this dashboard goes live.
    ===================================================================== */
 const CONFIG = {
-  // Create a separate Make Custom Webhook + Webhook Response scenario for dashboard data.
-  DATA_ENDPOINT: 'PASTE_MAKE_DASHBOARD_DATA_WEBHOOK_URL',
-  DASHBOARD_TOKEN: 'PASTE_A_RANDOM_PRIVATE_TOKEN',
+  SHEET_ID: '1bkve00DeemvhfacaKMbPbzzDeqe_RQPiOBvtMNTBuK4',        // From the sheet URL: /d/<THIS PART>/edit
+  API_KEY:  'AIzaSyBeJqbuH4pwoLPqkjLg49fbRo_iiAslBXQ',   // Google Cloud Console → APIs & Services → Credentials
+  TABS: { clients: 'Clients', payments: 'Payments', leads: 'Leads Delivered' },
   REFRESH_MS: 60000,
-  USE_SAMPLE_DATA_WHEN_OFFLINE: true,
 };
 
 /* Note: the Sheets API v4 with only an API key can read a sheet ONLY if it is
@@ -539,46 +553,78 @@ function setText(id, text) {
   el.classList.remove('skel', 'h-6', 'h-7', 'h-8', 'w-16', 'w-24', 'w-28');
 }
 
-/* --------------------------- Make data fetching --------------------------- */
+/* --------------------------- sheet fetching --------------------------- */
 
-const sampleData = {
-  clients: [{
-    'Client Name':'Bamidele Adewale','Agency':'Sample Agency','Plan':'Starter','Monthly Fee':'25000','Status':'Inactive','Date Joined':'2026-06-16','Corridor':'Ajah / Sangotedo','Property Segment':'Apartments','Listing Count':'3','Onboarding Complete':'TRUE','CRM Setup Complete':'TRUE','Campaign Live':'TRUE','Last Client Contact':'2026-07-29','Last Weekly Report Sent':'','Lead this week':'30','Renewal Date':'2026-07-16','Lead target':'8-12'
-  }], payments: [], leads: []
-};
-
-async function fetchDashboardData() {
-  const configured = CONFIG.DATA_ENDPOINT && !CONFIG.DATA_ENDPOINT.startsWith('PASTE_');
-  if (!configured) {
-    document.getElementById('config-warning').classList.remove('hidden');
-    return CONFIG.USE_SAMPLE_DATA_WHEN_OFFLINE ? sampleData : {clients:[], payments:[], leads:[]};
+async function fetchTab(tabName) {
+  const range = encodeURIComponent(`${tabName}!A:Z`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${range}?key=${CONFIG.API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`${tabName} (${res.status}): ${body.slice(0, 200)}`);
   }
-  const res = await fetch(CONFIG.DATA_ENDPOINT, {
-    method: 'POST', headers: {'Content-Type':'application/json','Accept':'application/json'},
-    body: JSON.stringify({type:'dashboard_data_request', token:CONFIG.DASHBOARD_TOKEN})
-  });
-  if (!res.ok) throw new Error(`Make dashboard endpoint (${res.status})`);
   const data = await res.json();
-  if (!data || !Array.isArray(data.clients) || !Array.isArray(data.payments) || !Array.isArray(data.leads)) {
-    throw new Error('Make response must contain clients, payments, and leads arrays');
-  }
-  document.getElementById('config-warning').classList.add('hidden');
-  return data;
+  return rowsToObjects(data.values || []);
+}
+
+function rowsToObjects(rows) {
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => (h || '').trim());
+  return rows.slice(1)
+    .filter(r => r.some(cell => (cell || '').toString().trim() !== ''))
+    .map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
+      return obj;
+    });
 }
 
 async function loadAllData() {
-  setConnStatus('loading', 'Syncing…'); hideError();
-  try {
-    const data = await fetchDashboardData();
-    state.clients = data.clients; state.payments = data.payments; state.leads = data.leads;
-    populateYearSelector(); renderAll();
-    const configured = CONFIG.DATA_ENDPOINT && !CONFIG.DATA_ENDPOINT.startsWith('PASTE_');
-    setConnStatus(configured ? 'online' : 'offline', configured ? 'Live via Make' : 'Sample data');
-    document.getElementById('last-updated').textContent = 'Last updated — ' + new Date().toLocaleString('en-NG', {dateStyle:'medium',timeStyle:'short'});
-  } catch (err) {
-    console.error(err); setConnStatus('error','Connection error'); showError(err.message || 'Unknown error');
-    if (CONFIG.USE_SAMPLE_DATA_WHEN_OFFLINE) { state.clients=sampleData.clients; state.payments=[]; state.leads=[]; populateYearSelector(); renderAll(); }
+  const isConfigured = CONFIG.SHEET_ID && !CONFIG.SHEET_ID.startsWith('PASTE_') &&
+                        CONFIG.API_KEY && !CONFIG.API_KEY.startsWith('PASTE_');
+  document.getElementById('config-warning').classList.toggle('hidden', isConfigured);
+  if (!isConfigured) {
+    setConnStatus('offline', 'Not configured');
+    return;
   }
+
+  setConnStatus('loading', 'Syncing…');
+  hideError();
+
+  try {
+    const [clients, payments, leads] = await Promise.all([
+      fetchTab(CONFIG.TABS.clients),
+      fetchTab(CONFIG.TABS.payments),
+      fetchTab(CONFIG.TABS.leads),
+    ]);
+    state.clients = clients;
+    state.payments = payments;
+    state.leads = leads;
+
+    populateYearSelector();
+    renderAll();
+
+    setConnStatus('online', 'Live');
+    document.getElementById('last-updated').textContent = 'Last updated — ' + new Date().toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch (err) {
+    console.error(err);
+    setConnStatus('error', 'Connection error');
+    showError(err.message || 'Unknown error');
+  }
+}
+
+function setConnStatus(kind, label) {
+  const el = document.getElementById('conn-status');
+  const dotColor = { loading: 'bg-gold-light animate-pulse', online: 'bg-green-400', error: 'bg-red-400', offline: 'bg-slate-600' }[kind] || 'bg-slate-600';
+  el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>${label}`;
+}
+
+function showError(detail) {
+  document.getElementById('error-banner').classList.remove('hidden');
+  document.getElementById('error-detail').textContent = detail;
+}
+function hideError() {
+  document.getElementById('error-banner').classList.add('hidden');
 }
 
 /* ------------------------------ rendering ------------------------------ */
@@ -606,6 +652,7 @@ function renderAll() {
   renderRevenueChart();
   renderMetrics();
   renderClients();
+  renderFormSubmissions();
   renderOperationsSummary();
   renderPayments();
   renderLeads();
@@ -641,7 +688,7 @@ function renderTopStats() {
   const pendingCount = state.clients.filter(c => (c['Status'] || '').toLowerCase() === 'pending').length;
   setText('stat-pending-clients', String(pendingCount));
 
-  const renewedCount = activeClients.filter(c => hasPaidThisMonth(c['Client Name'])).length;
+  const renewedCount = activeClients.filter(c => hasPaidThisMonth(clientName(c))).length;
   setText('stat-renewed-this-month', `${renewedCount}/${activeClients.length}`);
 
   const renewalsDue = computeUpcomingRenewals(7);
@@ -844,12 +891,26 @@ function renderMetrics() {
   }
 }
 
+function firstValue(row, keys) { for (const k of keys) { if (row[k] !== undefined && row[k] !== '') return row[k]; } return ''; }
+function clientName(row) { return firstValue(row, ['Client Name','FULL NAME','Full Name','Name']); }
+function agencyName(row) { return firstValue(row, ['Agency','COMPANY NAME','Company Name','Company']); }
+function clientStatus(row) { return firstValue(row, ['Status','CLIENT STATUS','Client Status']) || 'Unactive'; }
+function renderFormSubmissions() {
+  const rows=state.clients; const head=document.getElementById('form-submissions-head'); const body=document.getElementById('form-submissions-tbody');
+  document.getElementById('form-submissions-empty').classList.toggle('hidden', rows.length>0);
+  document.getElementById('form-submission-count').textContent = `${rows.length} submission${rows.length===1?'':'s'}`;
+  if(!rows.length){head.innerHTML='';body.innerHTML='';return;}
+  const keys=[]; rows.forEach(r=>Object.keys(r).forEach(k=>{if(k && !keys.includes(k)) keys.push(k);}));
+  head.innerHTML='<tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-white/10 bg-card">'+keys.map(k=>`<th class="py-2.5 px-2 font-medium whitespace-nowrap">${escapeHtml(k)}</th>`).join('')+'</tr>';
+  body.innerHTML=rows.map(r=>'<tr class="hover:bg-white/[0.03] transition-colors">'+keys.map(k=>`<td class="py-2.5 px-2 text-slate-300 whitespace-nowrap">${escapeHtml(r[k] || '—')}</td>`).join('')+'</tr>').join('');
+}
+
 function renderClients() {
   const search = state.clientSearch.trim().toLowerCase();
   const filter = state.clientStatusFilter;
   const rows = state.clients.filter(c => {
-    const matchesSearch = !search || (c['Client Name'] || '').toLowerCase().includes(search);
-    const matchesStatus = filter === 'all' || (c['Status'] || '').toLowerCase() === filter;
+    const matchesSearch = !search || (clientName(c) || '').toLowerCase().includes(search) || (agencyName(c) || '').toLowerCase().includes(search);
+    const matchesStatus = filter === 'all' || clientStatus(c).toLowerCase() === filter;
     return matchesSearch && matchesStatus;
   });
 
@@ -857,11 +918,11 @@ function renderClients() {
   document.getElementById('clients-empty').classList.toggle('hidden', rows.length > 0);
 
   tbody.innerHTML = rows.map(c => {
-    const status = (c['Status'] || '').toLowerCase();
+    const status = clientStatus(c).toLowerCase();
     let renewedCell;
     if (status === 'churned') {
       renewedCell = '<span class="text-slate-600">—</span>';
-    } else if (hasPaidThisMonth(c['Client Name'])) {
+    } else if (hasPaidThisMonth(clientName(c))) {
       renewedCell = '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-active">Renewed</span>';
     } else {
       renewedCell = '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium badge-pending">Not Yet</span>';
@@ -871,16 +932,16 @@ function renderClients() {
 
     return `
     <tr class="hover:bg-white/[0.03] transition-colors">
-      <td class="py-2.5 px-4 sm:px-2 font-medium">${escapeHtml(c['Client Name'])}</td>
-      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Agency'])}</td>
+      <td class="py-2.5 px-4 sm:px-2 font-medium">${escapeHtml(clientName(c))}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(agencyName(c))}</td>
       <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Plan'])}</td>
       <td class="py-2.5 px-2 tabular">${fmtNaira(parseMoney(c['Monthly Fee']))}</td>
-      <td class="py-2.5 px-2"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(c['Status'])}">${escapeHtml(c['Status']) || '—'}</span></td>
+      <td class="py-2.5 px-2"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(c['Status'])}">${escapeHtml(clientStatus(c)) || '—'}</span></td>
       <td class="py-2.5 px-2">${renewedCell}</td>
-      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Date Joined'])}</td>
-      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Corridor'])}</td>
-      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(c['Property Segment'])}</td>
-      <td class="py-2.5 px-2 tabular text-slate-300">${escapeHtml(c['Listing Count'])}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(firstValue(c,['Date Joined','TIMESTAMP']))}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(firstValue(c,['Corridor','CORRIDOR']))}</td>
+      <td class="py-2.5 px-2 text-slate-300">${escapeHtml(firstValue(c,['Property Segment','SEGMENT']))}</td>
+      <td class="py-2.5 px-2 tabular text-slate-300">${escapeHtml(firstValue(c,['Listing Count','LISTING COUNT']))}</td>
       <td class="py-2.5 px-2">${boolBadge(c['Onboarding Complete'])}</td>
       <td class="py-2.5 px-2">${boolBadge(c['CRM Setup Complete'])}</td>
       <td class="py-2.5 px-2">${boolBadge(c['Campaign Live'])}</td>
