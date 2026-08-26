@@ -8,7 +8,7 @@
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -84,9 +84,132 @@
 
   table thead th { position: sticky; top: 0; z-index: 5; }
 </style>
+<style>
+  /* Ops Dashboard visual system: Executive Control Room — Swiss discipline, navy depth, gold focus, explicit live states. */
+  body, body .font-sans { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important; }
+  .font-display { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important; }
+  .ops-rail { position: fixed; inset: 0 auto 0 0; z-index: 45; width: 222px; display: flex; flex-direction: column; padding: 20px 14px 16px; border-right: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(11,23,41,.98), rgba(7,16,31,.98)); box-shadow: 16px 0 44px rgba(0,0,0,.14); }
+  .ops-rail-brand { display: flex; align-items: center; gap: 10px; padding: 0 7px 22px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .ops-rail-mark { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(231,184,43,.74); border-radius: 11px; color: #e7b82b; font: 700 15px/1 'Space Mono', monospace; box-shadow: 0 0 0 5px rgba(231,184,43,.06); }
+  .ops-rail-brand strong { display:block; color:#f5f6f8; font-size:13px; letter-spacing:-.02em; }
+  .ops-rail-brand span { display:block; margin-top:3px; color:#75859d; font:700 9px/1 'Space Mono', monospace; letter-spacing:.13em; }
+  .ops-rail-label { margin: 25px 9px 9px; color:#62728b; font:700 9px/1 'Space Mono', monospace; letter-spacing:.17em; }
+  .ops-rail-link { display:flex; align-items:center; gap:10px; margin:2px 0; padding:11px 10px; border-left:2px solid transparent; border-radius:9px; color:#9daabe; font-size:12px; font-weight:700; text-decoration:none; transition: background .18s ease, color .18s ease, border-color .18s ease; }
+  .ops-rail-link:hover, .ops-rail-link[aria-current="page"] { color:#f6d46d; background:rgba(231,184,43,.09); border-left-color:#e7b82b; }
+  .ops-rail-icon { width:21px; height:21px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); border-radius:6px; color:#8290a7; font:700 10px/1 'Space Mono', monospace; }
+  .ops-rail-link:hover .ops-rail-icon, .ops-rail-link[aria-current="page"] .ops-rail-icon { border-color:rgba(231,184,43,.48); color:#e7b82b; }
+  .ops-rail-foot { margin-top:auto; padding:13px 10px; border:1px solid rgba(103,213,170,.18); border-radius:10px; background:rgba(103,213,170,.045); color:#8493a9; font-size:10px; line-height:1.5; }
+  .ops-rail-foot b { display:block; color:#67d5aa; font:700 9px/1 'Space Mono', monospace; letter-spacing:.13em; margin-bottom:6px; }
+  @media (min-width: 641px) { header, main { margin-left: 222px !important; margin-right: 0 !important; width: calc(100% - 222px); max-width: none !important; } header > div { max-width: 1440px !important; margin-left: auto !important; margin-right: auto !important; } }
+  @media (max-width: 640px) { .ops-rail { display:none; } }
+
+  :root {
+    --ops-ink: #f7f8fb;
+    --ops-muted: #91a0b7;
+    --ops-navy: #07101f;
+    --ops-panel: #111d31;
+    --ops-gold: #e7b82b;
+    --ops-mint: #67d5aa;
+    --ops-coral: #ff8d78;
+  }
+  html { background: var(--ops-navy); scroll-behavior: smooth; }
+  body {
+    background: radial-gradient(900px 520px at 82% -14%, rgba(39,69,119,.30), transparent 64%), radial-gradient(760px 440px at -12% 28%, rgba(231,184,43,.055), transparent 62%), linear-gradient(180deg, #07101f 0%, #091322 54%, #07101d 100%);
+    color: var(--ops-ink);
+    letter-spacing: -.005em;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: .24;
+    background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, black, transparent 86%);
+  }
+  header { background: rgba(7,16,31,.86) !important; border-bottom-color: rgba(231,184,43,.16) !important; box-shadow: 0 18px 48px rgba(0,0,0,.18); }
+  header > div:first-child { min-height: 76px; }
+  header h1 { letter-spacing: .02em; }
+  header h1::before { content: "ATLAS / "; color: #8290a7; font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; vertical-align: 2px; margin-right: 4px; }
+  .corridor-line { height: 1px !important; background: linear-gradient(90deg, transparent, rgba(231,184,43,.7) 16%, rgba(231,184,43,.14) 58%, transparent) !important; }
+  header select, header button, #client-search, #client-status-filter { min-height: 38px; background: rgba(17,29,49,.9) !important; border-color: rgba(255,255,255,.12) !important; border-radius: 10px !important; }
+  header button { box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+  header button:hover, header select:hover, #client-search:hover, #client-status-filter:hover { border-color: rgba(231,184,43,.65) !important; }
+  main { max-width: 1440px !important; padding-top: 28px !important; }
+  .ops-brief-strip { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding: 18px 20px; border: 1px solid rgba(231,184,43,.20); border-left: 3px solid #e7b82b; border-radius: 14px; background: linear-gradient(115deg, rgba(20,35,58,.94), rgba(10,22,39,.72)); box-shadow: 0 16px 34px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.04); }
+  .ops-brief-strip h2 { margin: 7px 0 0; font-size: clamp(18px, 2.4vw, 27px); line-height: 1.05; letter-spacing: -.045em; }
+  .ops-kicker { color: #e7b82b; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; }
+  .ops-brief-note { display: flex; align-items: center; gap: 9px; color: #8c9ab0; font-size: 12px; text-align: right; max-width: 360px; }
+  .ops-brief-dot { width: 7px; height: 7px; display: inline-block; flex: 0 0 auto; border-radius: 999px; background: #67d5aa; box-shadow: 0 0 0 4px rgba(103,213,170,.10); }
+  main > section[aria-label="Key stats"] { position: relative; }
+  main > section[aria-label="Key stats"]::before { content: "TODAY'S OPERATING PULSE"; display: block; margin-bottom: 13px; color: #71819a; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; }
+  .stat-card, section[aria-label="Revenue by month"], section[aria-label="Clients"], section[aria-label="Onboarding form submissions"], section[aria-label="Payment history"], section[aria-label="Leads delivered"], section[aria-label="Key business metrics"] > div > div, section[aria-label="Client operations"] .bg-card { position: relative; overflow: hidden; background: linear-gradient(145deg, rgba(22,36,58,.96), rgba(13,25,43,.98)) !important; border: 1px solid rgba(255,255,255,.075) !important; border-radius: 15px !important; box-shadow: 0 15px 38px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.035) !important; }
+  .stat-card::after, section[aria-label="Client operations"] .bg-card::after { content: ""; position: absolute; right: -22px; bottom: -34px; width: 92px; height: 92px; border: 1px solid rgba(231,184,43,.10); border-radius: 50%; }
+  .stat-card { min-height: 126px; transition: transform .18s cubic-bezier(.23,1,.32,1), border-color .18s ease, box-shadow .18s ease; }
+  .stat-card:hover { transform: translateY(-3px); border-color: rgba(231,184,43,.34) !important; box-shadow: 0 20px 44px rgba(0,0,0,.24), 0 0 0 1px rgba(231,184,43,.06) !important; }
+  .stat-card:nth-child(3), .stat-card:nth-child(6) { border-top: 2px solid rgba(231,184,43,.78) !important; }
+  .stat-card:nth-child(2), .stat-card:nth-child(7) { border-top: 2px solid rgba(103,213,170,.62) !important; }
+  .stat-card:nth-child(5), .stat-card:nth-child(8) { border-top: 2px solid rgba(255,141,120,.55) !important; }
+  .stat-card p:first-child, section[aria-label="Key business metrics"] p:first-child, section[aria-label="Client operations"] p:first-child { color: #8391a7 !important; font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .12em !important; }
+  .stat-card p:nth-child(2), section[aria-label="Key business metrics"] p[id], section[aria-label="Client operations"] p[id] { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+  section[aria-label="Revenue by month"] { padding: 22px 24px 25px !important; border-top: 2px solid rgba(231,184,43,.40) !important; }
+  section[aria-label="Revenue by month"] .relative { background: rgba(6,14,27,.34); border-radius: 12px; padding: 9px 12px; }
+  section[aria-label="Revenue by month"] canvas { filter: drop-shadow(0 8px 12px rgba(0,0,0,.18)); }
+  section[aria-label="Key business metrics"] > div { gap: 12px !important; }
+  section[aria-label="Key business metrics"] > div > div { min-height: 112px; transition: transform .18s ease, border-color .18s ease; }
+  section[aria-label="Key business metrics"] > div > div:hover { transform: translateY(-2px); border-color: rgba(231,184,43,.28) !important; }
+  section[aria-label="Key business metrics"] > div > div:nth-child(1), section[aria-label="Key business metrics"] > div > div:nth-child(5) { border-left: 2px solid rgba(103,213,170,.62) !important; }
+  section[aria-label="Key business metrics"] > div > div:nth-child(2), section[aria-label="Key business metrics"] > div > div:nth-child(6) { border-left: 2px solid rgba(255,141,120,.52) !important; }
+  section[aria-label="Client operations"] { padding: 3px 0 2px; }
+  section[aria-label="Client operations"] > div:first-child { padding-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  section[aria-label="Client operations"] .bg-card { min-height: 112px; }
+  section[aria-label="Client operations"] .bg-card p[id] { color: #f6d46d !important; }
+  section[aria-label="Client operations"] .bg-card:nth-child(1) p[id], section[aria-label="Client operations"] .bg-card:nth-child(2) p[id], section[aria-label="Client operations"] .bg-card:nth-child(3) p[id] { color: var(--ops-mint) !important; }
+  section[aria-label="Clients"], section[aria-label="Onboarding form submissions"], section[aria-label="Payment history"], section[aria-label="Leads delivered"] { padding: 22px 24px !important; }
+  section[aria-label="Clients"] { border-top: 2px solid rgba(103,213,170,.48) !important; }
+  section[aria-label="Payment history"] { border-top: 2px solid rgba(231,184,43,.38) !important; }
+  section[aria-label="Leads delivered"] { border-top: 2px solid rgba(103,213,170,.38) !important; }
+  table { border-collapse: separate; border-spacing: 0; }
+  table thead th { background: rgba(10,20,35,.96); color: #8290a7 !important; font: 600 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .10em !important; }
+  table tbody tr { transition: background .16s ease; }
+  table tbody tr:hover { background: rgba(231,184,43,.055); }
+  table tbody td { border-color: rgba(255,255,255,.055) !important; }
+  #error-banner, #renewal-banner { box-shadow: 0 12px 30px rgba(0,0,0,.15); }
+  #error-banner { border-left: 3px solid #ff6d5b; }
+  #renewal-banner { border-left: 3px solid var(--ops-coral); }
+  input::placeholder { color: #65748c !important; }
+  select option { background: #111d31; color: #f7f8fb; }
+  .badge-active, .badge-pending, .badge-churned { border-radius: 999px !important; padding: 3px 8px !important; font-size: 10px !important; font-weight: 700 !important; letter-spacing: .04em; }
+  @media (max-width: 640px) {
+    header > div:first-child { min-height: 68px; align-items: flex-start; padding-top: 14px; padding-bottom: 12px; }
+    header h1 { font-size: 15px !important; }
+    header h1::before { display: block; margin-bottom: 3px; }
+    main { padding-top: 22px !important; padding-bottom: 28px !important; }
+    .ops-brief-strip { align-items: flex-start; flex-direction: column; padding: 16px; }
+    .ops-brief-note { text-align: left; }
+    .stat-card { min-height: 112px; padding: 14px !important; }
+    section[aria-label="Revenue by month"], section[aria-label="Clients"], section[aria-label="Onboarding form submissions"], section[aria-label="Payment history"], section[aria-label="Leads delivered"] { padding: 17px 15px !important; }
+    section[aria-label="Revenue by month"] .relative { padding: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stat-card, section[aria-label="Key business metrics"] > div > div, table tbody tr { transition: none !important; }
+  }
+</style>
 </head>
 
 <body class="font-sans text-white antialiased">
+<nav class="ops-rail" aria-label="Operations navigation">
+  <div class="ops-rail-brand"><div class="ops-rail-mark">K</div><div><strong>KRINGSTAR ATLAS</strong><span>OPS CONTROL</span></div></div>
+  <div class="ops-rail-label">WORKSPACE</div>
+  <a class="ops-rail-link" href="#top" aria-current="page"><span class="ops-rail-icon">01</span><span>Command view</span></a>
+  <a class="ops-rail-link" href="#revenue-chart"><span class="ops-rail-icon">02</span><span>Revenue pulse</span></a>
+  <a class="ops-rail-link" href="#clients-tbody"><span class="ops-rail-icon">03</span><span>Client health</span></a>
+  <a class="ops-rail-link" href="#payments-groups"><span class="ops-rail-icon">04</span><span>Cash received</span></a>
+  <a class="ops-rail-link" href="#leads-tbody"><span class="ops-rail-icon">05</span><span>Lead delivery</span></a>
+  <div class="ops-rail-foot"><b>CONTROL NOTE</b>Protect the next renewal window. Review live status before the weekly client touchpoint.</div>
+</nav>
 
 <!-- ============================= CONFIG BANNER (remove-me if desired) ============================= -->
 <div id="config-warning" class="hidden bg-gold/90 text-navy text-sm font-semibold text-center py-2 px-4">
@@ -128,7 +251,11 @@
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+<main id="top" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+  <div class="ops-brief-strip" aria-label="Operating brief">
+    <div><span class="ops-kicker">KRINGSTAR ATLAS / OPERATING BRIEF</span><h2>Make the next client decision visible.</h2></div>
+    <div class="ops-brief-note"><span class="ops-brief-dot"></span><span>Revenue, delivery, and renewal readiness in one control surface.</span></div>
+  </div>
 
   <!-- ============================= ERROR STATE ============================= -->
   <div id="error-banner" class="hidden rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
